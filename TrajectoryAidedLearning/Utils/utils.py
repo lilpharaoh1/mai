@@ -125,7 +125,6 @@ def setup_run_list(run_file):
 
             run_list.append(Namespace(**run))
 
-
     init_reward_struct("Data/Vehicles/" + run_list[0].path)
 
     return run_list

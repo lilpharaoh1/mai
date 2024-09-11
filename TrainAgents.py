@@ -12,8 +12,8 @@ from TrajectoryAidedLearning.Utils.HistoryStructs import VehicleStateHistory
 from TrajectoryAidedLearning.TestSimulation import TestSimulation
 
 # settings
-SHOW_TRAIN = False
-# SHOW_TRAIN = True
+# SHOW_TRAIN = False
+SHOW_TRAIN = True
 VERBOSE = True
 
 

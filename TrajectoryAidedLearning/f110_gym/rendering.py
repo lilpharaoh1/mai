@@ -66,7 +66,9 @@ class EnvRenderer(pyglet.window.Window):
                       samples=4,
                       depth_size=16,
                       double_buffer=True)
-        super().__init__(width, height, config=conf, resizable=True, vsync=False, *args, **kwargs)
+        super(EnvRenderer, self).__init__(width, height, config=conf, resizable=True, vsync=False, *args, **kwargs)
+
+        self.i = 0
 
         # gl init
         glClearColor(9/255, 32/255, 87/255, 1.)
@@ -82,6 +84,9 @@ class EnvRenderer(pyglet.window.Window):
 
         # current batch that keeps track of all graphics
         self.batch = pyglet.graphics.Batch()
+
+        # background rectangle
+        self.background = None
 
         # current env map
         self.map_points = None
@@ -157,6 +162,9 @@ class EnvRenderer(pyglet.window.Window):
         map_points = 50. * map_coords[:, map_mask_flat].T
         for i in range(map_points.shape[0]):
             self.batch.add(1, GL_POINTS, None, ('v3f/stream', [map_points[i, 0], map_points[i, 1], map_points[i, 2]]), ('c3B/stream', [183, 193, 222]))
+
+        self.background = pyglet.shapes.Rectangle(-10000, -10000, 20000, 20000, color =(0,0,0))
+
         self.map_points = map_points
 
     def add_obstacles(self, obs_locations, obs_size):
@@ -293,6 +301,10 @@ class EnvRenderer(pyglet.window.Window):
         super().on_close()
         raise Exception('Rendering window was closed.')
 
+    # def clear(self):
+        # super().clear()
+
+
     def on_draw(self):
         """
         Function when the pyglet is drawing. The function draws the batch created that includes the map points, the agent polygons, and the information text, and the fps display.
@@ -322,15 +334,22 @@ class EnvRenderer(pyglet.window.Window):
 
         # Clear window with ClearColor
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+ 
 
         # Set orthographic projection matrix
         glOrtho(self.left, self.right, self.bottom, self.top, 1, -1)
+
+        # Draw background TODO this is unnecessary, find reason screen won't clear
+        # self.background = pyglet.shapes.Rectangle(0, 0, 10000, 10000, color =(50,0,0))
+        self.background.draw()
 
         # Draw all batches
         self.batch.draw()
         self.fps_display.draw()
         # Remove default modelview matrix
         glPopMatrix()
+
+
 
     def update_obs(self, obs):
         """
