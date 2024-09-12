@@ -113,9 +113,10 @@ def setup_run_list(run_file):
                 if key not in run.keys() and key != "runs":
                     run[key] = run_dict[key]
 
+
             # only have to add what isn't already there
-            for i, adv in enumerate(run["adversaries"]):
-                run["adversaries"][i] = adv["architecture"]
+            adversaries = [adv["architecture"] if isinstance(adv, dict) else adv for adv in run["adversaries"]]
+            run["adversaries"] = adversaries
             set_n = run['set_n']
             max_speed = run['max_speed']
             run["n"] = rep

@@ -205,6 +205,16 @@ class TestSimulation():
 
     def reset_simulation(self):
         reset_pose = np.zeros((self.num_agents, 3))
+        # offset = np.concatenate((
+        #                 np.arange(self.num_agents).reshape(1, -1),  # X axis
+        #                 np.zeros((1, self.num_agents)),             # Y axis
+        #                 np.zeros((1, self.num_agents))              # Z axis (unused I believe?)
+        #                 ))
+        x_offset = np.zeros(self.num_agents)
+        x_offset[1::2] = np.arange(self.num_agents//2)
+        y_offset = np.zeros(self.num_agents)
+        y_offset[1::2] = np.ones(self.num_agents//2)
+        reset_pose += np.concatenate((x_offset.reshape(1, -1), y_offset.reshape(1, -1), np.zeros((1, self.num_agents))), axis=0).T
 
         obs, step_reward, done, _ = self.env.reset(reset_pose)
 

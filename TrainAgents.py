@@ -6,6 +6,7 @@ from TrajectoryAidedLearning.f110_gym.f110_env import F110Env
 from TrajectoryAidedLearning.Utils.utils import *
 
 from TrajectoryAidedLearning.Planners.PurePursuit import PurePursuit
+from TrajectoryAidedLearning.Planners.DisparityExtender import DispExt
 from TrajectoryAidedLearning.Planners.AgentPlanners import AgentTrainer, AgentTester
 from TrajectoryAidedLearning.Planners.AgentPlannersWindow import AgentTrainerWindow
 
@@ -45,8 +46,8 @@ def select_agent(run, conf, architecture):
         agent = AgentTrainer(run, conf)
     elif agent_type == "TD3Window":
         agent = AgentTrainerWindow(run, conf)
-    elif agent_type == "DispExtender":
-        agent = None # Fill in later
+    elif agent_type == "DispExt":
+        agent = DispExt()
     else: raise Exception("Unknown agent type: " + agent_type)
 
     return agent
@@ -61,9 +62,9 @@ class TrainSimulation(TestSimulation):
 
 
     def run_training_evaluation(self):
-        print(self.run_data)
+        # print(self.run_data)
         for run in self.run_data:
-            print(run)
+            print("Performing run :", run)
             seed = run.random_seed + 10*run.n
             np.random.seed(seed) # repetition seed
             # torch.set_deterministic(True)
@@ -85,6 +86,7 @@ class TrainSimulation(TestSimulation):
 
             self.target_planner = select_agent(run, self.conf, run.architecture)
             self.adv_planners = [select_agent(run, self.conf, architecture) for architecture in run.adversaries] 
+
 
             self.completed_laps = 0
 
@@ -124,7 +126,8 @@ class TrainSimulation(TestSimulation):
 
         for i in range(self.n_train_steps):
             self.prev_obs = observation
-            action = self.planner.plan(observation)
+            print("observation :", observation)
+            target_action = self.target_planner.plan(observation)
             observation = self.run_step(action)
 
             if lap_counter > 0: # don't train on first lap.

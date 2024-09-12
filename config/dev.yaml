@@ -22,7 +22,7 @@ map_name: "f1_esp"
 reward: "Cth"
 
 adversaries:
-  architecture: DispExt
+  - architecture: DispExt
 
 runs:
   # - max_speed: 4
