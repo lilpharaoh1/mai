@@ -54,10 +54,8 @@ class SmartBufferTD3Window(object):
             self.ptr += 1
         if d:
             self.clear_window()
-
         
         if self.ptr == self.max_size-1: self.ptr = 0 #! crisis
-        # if self.ptr == 99999: self.ptr = 0 #! crisis
     
     def fill_buff(self, s, a, s_p, r, d):
         # move buff back one
@@ -90,11 +88,11 @@ class SmartBufferTD3Window(object):
 
     def sample(self, batch_size):
         ind = np.random.randint(0, self.ptr-1, size=batch_size)
-        states = np.empty((batch_size, self.state_dim))
-        actions = np.empty((batch_size, self.act_dim))
-        next_states = np.empty((batch_size, self.state_dim))
-        rewards = np.empty((batch_size, 1))
-        dones = np.empty((batch_size, 1))
+        states = np.empty((batch_size, *self.state_buff.shape))
+        actions = np.empty((batch_size, *self.act_buff.shape))
+        next_states = np.empty((batch_size, *self.next_state_buff.shape))
+        rewards = np.empty((batch_size, *self.reward_buff.shape))
+        dones = np.empty((batch_size, *self.done_buff.shape))
 
         for i, j in enumerate(ind): 
             states[i] = self.states[j]
