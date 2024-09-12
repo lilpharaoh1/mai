@@ -23,7 +23,7 @@ VERBOSE = True
 
 NON_TRAINABLE = []
 
-
+# TODO move to utils
 def select_reward_function(run, conf, std_track):
     reward = run.reward
     if reward == "Progress":
@@ -36,8 +36,9 @@ def select_reward_function(run, conf, std_track):
         
     return reward_function
 
-def select_agent(run, conf):
-    agent_type = run.architecture if run.architecture is not None else "TD3"
+# TODO move to utils
+def select_agent(run, conf, architecture):
+    agent_type = architecture if architecture is not None else "TD3"
     if agent_type == "PP":
         agent = PurePursuit(run, conf)
     elif agent_type == "TD3" or agent_type == "fast":
@@ -49,7 +50,6 @@ def select_agent(run, conf):
     else: raise Exception("Unknown agent type: " + agent_type)
 
     return agent
-    
 
 
 class TrainSimulation(TestSimulation):
@@ -70,15 +70,21 @@ class TrainSimulation(TestSimulation):
             torch.use_deterministic_algorithms(True)
             torch.manual_seed(seed)
 
-            self.env = F110Env(map=run.map_name)
+            self.env = F110Env(
+                map=run.map_name,
+                num_agents=run.num_agents
+                )
             self.map_name = run.map_name
+            self.num_agents = run.num_agents
             self.n_train_steps = run.n_train_steps
+            assert self.num_agents == len(run.adversaries) + 1, "Number of agents != number of adversaries + 1"
 
             #train
             self.std_track = StdTrack(run.map_name)
             self.reward = select_reward_function(run, self.conf, self.std_track)
 
-            self.planner = select_agent(run, self.conf)
+            self.target_planner = select_agent(run, self.conf, run.architecture)
+            self.adv_planners = [select_agent(run, self.conf, architecture) for architecture in run.adversaries] 
 
             self.completed_laps = 0
 
@@ -110,7 +116,7 @@ class TrainSimulation(TestSimulation):
     def run_training(self):
         assert self.env != None, "No environment created"
         start_time = time.time()
-        print(f"Starting Baseline Training: {self.planner.name}")
+        print(f"Starting Baseline Training: {self.target_planner.name}")
         # assert not type(agent) in NON_TRAINABLE, f"{type(agent)} is a non-trainable agent type"
         
         lap_counter, crash_counter = 0, 0
@@ -159,8 +165,9 @@ class TrainSimulation(TestSimulation):
 
 
 def main():
+    run_file = "dev"
     # run_file = "Cth_maps"
-    run_file = "Cth_speeds"
+    # run_file = "Cth_speeds"
     # run_file = "TAL_maps"
     # run_file = "TAL_speeds"
     # run_file = "Cth_speedMaps"

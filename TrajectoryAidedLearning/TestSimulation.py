@@ -25,7 +25,9 @@ class TestSimulation():
         self.conf = load_conf("config_file")
 
         self.env = None
-        self.planner = None
+        self.num_agents = None
+        self.target_planner = None
+        self.adv_planners = None
         
         self.n_test_laps = None
         self.lap_times = None
@@ -56,8 +58,12 @@ class TestSimulation():
                 self.noise_std = run.noise_std
                 self.noise_rng = np.random.default_rng(seed=seed)
 
-            self.env = F110Env(map=run.map_name)
+            self.env = F110Env(
+                map=run.map_name,
+                num_agents=run.num_agents,
+                )
             self.map_name = run.map_name
+            self.num_agents = run.num_agents
 
             if run.architecture == "PP": 
                 planner = PurePursuit(self.conf, run)
@@ -65,7 +71,7 @@ class TestSimulation():
                 planner = AgentTester(run, self.conf)
             else: raise AssertionError(f"Planner {run.planner} not found")
 
-            if run.test_mode == "Std": self.planner = planner
+            if run.test_mode == "Std": self.target_planner = planner
             else: raise AssertionError(f"Test mode {run.test_mode} not found")
 
             self.vehicle_state_history = VehicleStateHistory(run, "Testing/")
@@ -90,7 +96,7 @@ class TestSimulation():
             observation = self.reset_simulation()
 
             while not observation['colision_done'] and not observation['lap_done']:
-                action = self.planner.plan(observation)
+                action = self.target_planner.plan(observation)
                 observation = self.run_step(action)
                 if SHOW_TEST: self.env.render('human_fast')
 
@@ -198,7 +204,7 @@ class TestSimulation():
         return observation
 
     def reset_simulation(self):
-        reset_pose = np.zeros(3)[None, :]
+        reset_pose = np.zeros((self.num_agents, 3))
 
         obs, step_reward, done, _ = self.env.reset(reset_pose)
 
