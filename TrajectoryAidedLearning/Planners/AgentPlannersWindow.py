@@ -1,6 +1,6 @@
 import numpy as np 
 from TrajectoryAidedLearning.Utils.TD3 import TD3
-from TrajectoryAidedLearning.Utils.TD3_window import TD3Window
+from TrajectoryAidedLearning.Utils.TD3Window import TD3Window
 from TrajectoryAidedLearning.Utils.HistoryStructs import TrainHistory
 import torch
 from numba import njit
@@ -61,7 +61,7 @@ class FastArchitecture:
 
 
 
-class AgentTrainer_window: 
+class AgentTrainerWindow: 
     def __init__(self, run, conf):
         self.run, self.conf = run, conf
         self.name = run.run_name
