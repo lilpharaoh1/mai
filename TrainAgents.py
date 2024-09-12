@@ -1,10 +1,15 @@
-from TrajectoryAidedLearning.f110_gym.f110_env import F110Env
-from TrajectoryAidedLearning.Utils.utils import *
-from TrajectoryAidedLearning.Planners.AgentPlanners import AgentTrainer, AgentTester
 import torch
-
 import numpy as np
 import time
+
+from TrajectoryAidedLearning.f110_gym.f110_env import F110Env
+from TrajectoryAidedLearning.Utils.utils import *
+
+from TrajectoryAidedLearning.Planners.PurePursuit import PurePursuit
+from TrajectoryAidedLearning.Planners.AgentPlanners import AgentTrainer, AgentTester
+from TrajectoryAidedLearning.Planners.AgentPlannersWindow import AgentTrainerWindow
+
+
 from TrajectoryAidedLearning.Utils.RewardSignals import *
 from TrajectoryAidedLearning.Utils.StdTrack import StdTrack
 
@@ -16,6 +21,7 @@ from TrajectoryAidedLearning.TestSimulation import TestSimulation
 SHOW_TRAIN = True
 VERBOSE = True
 
+NON_TRAINABLE = []
 
 
 def select_reward_function(run, conf, std_track):
@@ -29,6 +35,21 @@ def select_reward_function(run, conf, std_track):
     else: raise Exception("Unknown reward function: " + reward)
         
     return reward_function
+
+def select_agent(run, conf):
+    agent_type = run.architecture if run.architecture is not None else "TD3"
+    if agent_type == "PP":
+        agent = PurePursuit(run, conf)
+    elif agent_type == "TD3" or agent_type == "fast":
+        agent = AgentTrainer(run, conf)
+    elif agent_type == "TD3Window":
+        agent = AgentTrainerWindow(run, conf)
+    elif agent_type == "DispExtender":
+        agent = None # Fill in later
+    else: raise Exception("Unknown agent type: " + agent_type)
+
+    return agent
+    
 
 
 class TrainSimulation(TestSimulation):
@@ -57,7 +78,7 @@ class TrainSimulation(TestSimulation):
             self.std_track = StdTrack(run.map_name)
             self.reward = select_reward_function(run, self.conf, self.std_track)
 
-            self.planner = AgentTrainer(run, self.conf)
+            self.planner = select_agent(run, self.conf)
 
             self.completed_laps = 0
 
@@ -90,7 +111,8 @@ class TrainSimulation(TestSimulation):
         assert self.env != None, "No environment created"
         start_time = time.time()
         print(f"Starting Baseline Training: {self.planner.name}")
-
+        # assert not type(agent) in NON_TRAINABLE, f"{type(agent)} is a non-trainable agent type"
+        
         lap_counter, crash_counter = 0, 0
         observation = self.reset_simulation()
 

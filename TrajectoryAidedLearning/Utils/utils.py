@@ -117,10 +117,12 @@ def setup_run_list(run_file):
             set_n = run['set_n']
             max_speed = run['max_speed']
             run["n"] = rep
-            if run['architecture'] != "PP":
-                run['run_name'] = f"{run['architecture']}_{run['train_mode']}_{run['test_mode']}_{run['reward']}_{run['map_name']}_{max_speed}_{set_n}_{rep}"
-            else:
+            if run['architecture'] == "PP":
                 run['run_name'] = f"{run['architecture']}_PP_{run['test_mode']}_PP_{run['map_name']}_{max_speed}_{set_n}_{rep}"
+            elif run['architecture'] == "DispExt":
+                run['run_name'] = f"{run['architecture']}_DispExt_{run['test_mode']}_DispExt_{run['map_name']}_{max_speed}_{set_n}_{rep}"
+            else:
+                run['run_name'] = f"{run['architecture']}_{run['train_mode']}_{run['test_mode']}_{run['reward']}_{run['map_name']}_{max_speed}_{set_n}_{rep}"
             run['path'] = f"{run['test_name']}/"
 
             run_list.append(Namespace(**run))
