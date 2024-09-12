@@ -1,7 +1,7 @@
 
 test_name: "Cth_speeds"
 
-num_agents: 2
+num_agents: 5
 
 architecture: "fast"
 
@@ -23,6 +23,10 @@ reward: "Cth"
 
 adversaries:
   - architecture: DispExt
+  - architecture: DispExt
+  - architecture: DispExt
+  - architecture: DispExt
+ 
 
 runs:
   # - max_speed: 4

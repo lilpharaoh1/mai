@@ -21,7 +21,7 @@ class DispExt:
         """
         self.radians_per_elem = (2*np.pi) / len(ranges)
 	# we won't use the LiDAR data from directly behind us
-        proc_ranges = np.array(ranges[135:-135])
+        proc_ranges = ranges # no need to cut values # np.array(ranges[135:-135])
         # sets each value to the mean over a given window
         proc_ranges = np.convolve(proc_ranges, np.ones(self.PREPROCESS_CONV_SIZE), 'same') / self.PREPROCESS_CONV_SIZE
         proc_ranges = np.clip(proc_ranges, 0, self.MAX_LIDAR_DIST)
@@ -66,7 +66,7 @@ class DispExt:
     def plan(self, obs):
         """ Process each LiDAR scan as per the Follow Gap algorithm & publish an AckermannDriveStamped Message
         """
-        print("DispExt -> obs : ", obs)
+        ranges = obs["scan"]
         proc_ranges = self.preprocess_lidar(ranges)
         #Find closest point to LiDAR
         closest = proc_ranges.argmin()

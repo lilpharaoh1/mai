@@ -131,15 +131,15 @@ class TestSimulation():
         return eval_dict
 
     # this is an overide
-    def run_step(self, action):
+    def run_step(self, actions):
         sim_steps = self.conf.sim_steps
         if self.vehicle_state_history: 
-            self.vehicle_state_history.add_action(action)
-        self.prev_action = action
+            self.vehicle_state_history.add_action(actions[0])
+        self.prev_action = actions[0]
 
         sim_steps, done = sim_steps, False
         while sim_steps > 0 and not done:
-            obs, step_reward, done, _ = self.env.step(action[None, :])
+            obs, step_reward, done, _ = self.env.step(actions)
             sim_steps -= 1
         
         observation = self.build_observation(obs, done)
@@ -160,48 +160,53 @@ class TestSimulation():
                 Lidar scan beams 
             
         """
-        observation = {}
-        observation['current_laptime'] = obs['lap_times'][0]
-        observation['scan'] = obs['scans'][0] #TODO: introduce slicing here
-        
-        if self.noise_rng:
-            noise = self.noise_rng.normal(scale=self.noise_std, size=2)
-        else: noise = np.zeros(2)
-        pose_x = obs['poses_x'][0] + noise[0]
-        pose_y = obs['poses_y'][0] + noise[1]
-        theta = obs['poses_theta'][0]
-        linear_velocity = obs['linear_vels_x'][0]
-        steering_angle = obs['steering_deltas'][0]
-        state = np.array([pose_x, pose_y, theta, linear_velocity, steering_angle])
-
-        observation['state'] = state
-        observation['lap_done'] = False
-        observation['colision_done'] = False
-
-        observation['reward'] = 0.0
-        if done and obs['lap_counts'][0] == 0: 
-            observation['colision_done'] = True
-        if self.std_track is not None:
-            if self.std_track.check_done(observation) and obs['lap_counts'][0] == 0:
-                observation['colision_done'] = True
-
-            if self.prev_obs is None: observation['progress'] = 0
-            elif self.prev_obs['lap_done'] == True: observation['progress'] = 0
-            else: observation['progress'] = max(self.std_track.calculate_progress_percent(state[0:2]), self.prev_obs['progress'])
-            # self.racing_race_track.plot_vehicle(state[0:2], state[2])
-            # taking the max progress
+        observations = []
+        for agent_id in range(self.num_agents):
+            observation = {}
+            observation['current_laptime'] = obs['lap_times'][0]
+            observation['scan'] = obs['scans'][agent_id] #TODO: introduce slicing here
             
+            if self.noise_rng:
+                noise = self.noise_rng.normal(scale=self.noise_std, size=2)
+            else: noise = np.zeros(2)
+            pose_x = obs['poses_x'][agent_id] + noise[0]
+            pose_y = obs['poses_y'][agent_id] + noise[1]
+            theta = obs['poses_theta'][agent_id]
+            linear_velocity = obs['linear_vels_x'][agent_id]
+            steering_angle = obs['steering_deltas'][agent_id]
+            state = np.array([pose_x, pose_y, theta, linear_velocity, steering_angle])
 
-        if obs['lap_counts'][0] == 1:
-            observation['lap_done'] = True
+            observation['state'] = state
+            observation['lap_done'] = False
+            observation['colision_done'] = False
 
-        if self.reward:
-            observation['reward'] = self.reward(observation, self.prev_obs, self.prev_action)
+            observation['reward'] = 0.0
+            if done and obs['lap_counts'][agent_id] == 0: 
+                observation['colision_done'] = True
+            if self.std_track is not None:
+                if self.std_track.check_done(observation) and obs['lap_counts'][agent_id] == 0:
+                    observation['colision_done'] = True
 
-        if self.vehicle_state_history:
-            self.vehicle_state_history.add_state(obs['full_states'][0])
+                if self.prev_obs is None: observation['progress'] = 0
+                elif self.prev_obs['lap_done'] == True: observation['progress'] = 0
+                else: observation['progress'] = max(self.std_track.calculate_progress_percent(state[0:2]), self.prev_obs['progress'])
+                # self.racing_race_track.plot_vehicle(state[0:2], state[2])
+                # taking the max progress
+                
 
-        return observation
+            if obs['lap_counts'][agent_id] == 1:
+                observation['lap_done'] = True
+
+            if self.reward and agent_id == 0: # ie. if target_planner
+                observation['reward'] = self.reward(observation, self.prev_obs, self.prev_action)
+
+            if self.vehicle_state_history:
+                self.vehicle_state_history.add_state(obs['full_states'][agent_id])
+
+            # Append agent_observation to total observations
+            observations.append(observation)
+
+        return observations
 
     def reset_simulation(self):
         reset_pose = np.zeros((self.num_agents, 3))
@@ -210,11 +215,11 @@ class TestSimulation():
         #                 np.zeros((1, self.num_agents)),             # Y axis
         #                 np.zeros((1, self.num_agents))              # Z axis (unused I believe?)
         #                 ))
-        x_offset = np.zeros(self.num_agents)
-        x_offset[1::2] = np.arange(self.num_agents//2)
+        x_offset = np.arange(self.num_agents) * 2.0
         y_offset = np.zeros(self.num_agents)
-        y_offset[1::2] = np.ones(self.num_agents//2)
-        reset_pose += np.concatenate((x_offset.reshape(1, -1), y_offset.reshape(1, -1), np.zeros((1, self.num_agents))), axis=0).T
+        y_offset[1::2] = np.ones(self.num_agents//2) * 0.6
+        offset = np.concatenate((x_offset.reshape(1, -1), y_offset.reshape(1, -1), np.zeros((1, self.num_agents))), axis=0).T
+        reset_pose -= offset
 
         obs, step_reward, done, _ = self.env.reset(reset_pose)
 
