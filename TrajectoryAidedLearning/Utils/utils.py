@@ -113,7 +113,7 @@ def setup_run_list(run_file):
                 if key not in run.keys() and key != "runs":
                     run[key] = run_dict[key]
 
-
+            assert run['target_position'] > 0 and run['target_position'] <= run['num_agents'], "Invalid target_position in runfile"
             # only have to add what isn't already there
             adversaries = [adv["architecture"] if isinstance(adv, dict) else adv for adv in run["adversaries"]]
             run["adversaries"] = adversaries

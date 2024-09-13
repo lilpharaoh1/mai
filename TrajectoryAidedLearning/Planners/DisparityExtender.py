@@ -95,5 +95,4 @@ class DispExt:
         else: speed = self.straight_speed
         # print('Speed in m/s: {}'.format((speed)))
         # print('Steering angle in degrees: {}'.format((steering_angle/(np.pi/2))*90))
-        return 0.4, 0.4
         return steering_angle, speed

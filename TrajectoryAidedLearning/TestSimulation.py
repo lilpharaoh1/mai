@@ -9,6 +9,7 @@ from TrajectoryAidedLearning.Planners.AgentPlanners import AgentTester
 
 import torch
 import numpy as np
+from math import ceil
 import time
 
 # settings
@@ -17,7 +18,8 @@ SHOW_TEST = False
 # SHOW_TEST = True
 VERBOSE = True
 LOGGING = True
-
+GRID_X_COEFF = 2.0
+GRID_Y_COEFF = 0.6
 
 class TestSimulation():
     def __init__(self, run_file: str):
@@ -26,6 +28,7 @@ class TestSimulation():
 
         self.env = None
         self.num_agents = None
+        self.target_position = None
         self.target_planner = None
         self.adv_planners = None
         
@@ -64,6 +67,7 @@ class TestSimulation():
                 )
             self.map_name = run.map_name
             self.num_agents = run.num_agents
+            self.target_position = run.target_position
 
             if run.architecture == "PP": 
                 planner = PurePursuit(self.conf, run)
@@ -140,7 +144,6 @@ class TestSimulation():
         sim_steps, done = sim_steps, False
         while sim_steps > 0 and not done:
             obs, step_reward, done, _ = self.env.step(actions)
-            # print("In run_step, obs[collisions] :", obs["collisions"])
             sim_steps -= 1
         
         observations = self.build_observation(obs, done)
@@ -189,7 +192,7 @@ class TestSimulation():
                 observation['colision_done'] = True
 
             if self.std_track is not None:
-                if self.std_track.check_done(observation) and obs['lap_counts'][agent_id] == 0:
+                if self.std_track.check_done(agent_id, observation) and obs['lap_counts'][agent_id] == 0:
                     observation['colision_done'] = True
 
                 if self.prev_obs is None: observation['progress'] = 0
@@ -213,18 +216,29 @@ class TestSimulation():
 
         return observations
 
+    def calc_offsets(self, num_adv):
+        x_offset = np.arange(1, num_adv+1) * 2.0
+        y_offset = np.zeros(num_adv)
+        y_offset[::2] = np.ones(ceil(num_adv/2)) * 0.6
+        offset = np.concatenate((x_offset.reshape(1, -1), y_offset.reshape(1, -1), np.zeros((1, num_adv))), axis=0).T
+
+        return offset
+
     def reset_simulation(self):
         reset_pose = np.zeros((self.num_agents, 3))
-        # offset = np.concatenate((
-        #                 np.arange(self.num_agents).reshape(1, -1),  # X axis
-        #                 np.zeros((1, self.num_agents)),             # Y axis
-        #                 np.zeros((1, self.num_agents))              # Z axis (unused I believe?)
-        #                 ))
-        x_offset = np.arange(self.num_agents) * 2.0
-        y_offset = np.zeros(self.num_agents)
-        y_offset[1::2] = np.ones(self.num_agents//2) * 0.6
-        offset = np.concatenate((x_offset.reshape(1, -1), y_offset.reshape(1, -1), np.zeros((1, self.num_agents))), axis=0).T
-        reset_pose -= offset
+        if self.num_agents > 1:
+            reset_pose[:, 1] -= GRID_Y_COEFF/2
+
+        num_adv = self.num_agents - 1
+        adv_back = self.num_agents - self.target_position
+        adv_front = num_adv - adv_back
+
+        front_offset = self.calc_offsets(adv_front)
+        back_offset = np.flip(self.calc_offsets(adv_back), axis=0)
+        back_offset[:, 0] *= -1
+
+        offset = np.concatenate((np.zeros((1, 3)), front_offset, back_offset), axis=0)        
+        reset_pose += offset
 
         obs, step_reward, done, _ = self.env.reset(reset_pose)
 
@@ -234,7 +248,7 @@ class TestSimulation():
         observation = self.build_observation(obs, done)
         # self.prev_obs = observation
         if self.std_track is not None:
-            self.std_track.max_distance = 0.0
+            self.std_track.max_distance = np.zeros((self.num_agents))
 
         return observation
 

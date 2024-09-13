@@ -422,17 +422,11 @@ class ScanSimulator2D(object):
     def get_increment(self):
         return self.angle_increment
 
-    def check_location(self, pose, agent_id=None):
+    def check_location(self, pose):
         bounds_check = check_bounds(pose[0], pose[1], self.orig_x, self.orig_y, self.orig_c, self.orig_s, self.map_height, self.map_width, self.map_resolution)
-        d = distance_transform(pose[0], pose[1], self.orig_x, self.orig_y, self.orig_c, self.orig_s, self.map_height, self.map_width, self.map_resolution, self.dt)
-        # if agent_id in [1,3]:
-        #     print("--------------------------------------------")
-        #     print("agent_id :", agent_id)
-        #     print(f"bounds_check : {bounds_check}")
-        #     print(f"d : {d}")
-        #     print("--------------------------------------------")
         if bounds_check:
             return True
+        d = distance_transform(pose[0], pose[1], self.orig_x, self.orig_y, self.orig_c, self.orig_s, self.map_height, self.map_width, self.map_resolution, self.dt)   
         if d < 0.001: #1mm
             return True
         return False

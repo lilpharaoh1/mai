@@ -256,8 +256,7 @@ class F110Env(gym.Env):
 
     def check_location(self, agent_id):
         location = np.array([self.poses_x[agent_id], self.poses_y[agent_id]])
-
-        p_done = self.sim.agents[agent_id].scan_simulator.check_location(location, agent_id=agent_id)
+        p_done = self.sim.agents[agent_id].scan_simulator.check_location(location)
         if not p_done:
             return False
         if agent_id == 0:

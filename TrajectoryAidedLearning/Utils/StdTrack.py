@@ -1,15 +1,17 @@
 from TrajectoryAidedLearning.Utils.RewardUtils import *
 from matplotlib import pyplot as plt
+import numpy as np
 
 # Track base
 class StdTrack:
-    def __init__(self, map_name) -> None:
+    def __init__(self, map_name, num_agents=1) -> None:
         self.wpts = None
         self.ss = None
         self.map_name = map_name
         self.total_s = None
+        self.num_agents = num_agents
 
-        self.max_distance = 0
+        self.max_distance = np.zeros((num_agents))
         self.distance_allowance = 1
 
         self.load_centerline()
@@ -146,14 +148,14 @@ class StdTrack:
 
         plt.pause(0.0001)
 
-    def check_done(self, observation):
+    def check_done(self, agent_id, observation, max_distance=None):
         position = observation['state'][0:2]
         s = self.calculate_progress(position)
 
-        if s <= (self.max_distance - self.distance_allowance) and self.max_distance < 0.8*self.total_s and s > 0.1:
+        if s <= (self.max_distance[agent_id] - self.distance_allowance) and self.max_distance[agent_id] < 0.8*self.total_s and s > 0.1:
             # check if I went backwards, unless the max distance is almost finished and that it isn't starting
             return True # made negative progress
-        self.max_distance = max(self.max_distance, s)
+        self.max_distance[agent_id] = max(self.max_distance[agent_id], s)
 
         return False
 
