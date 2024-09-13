@@ -3,8 +3,8 @@ import numpy as np
 class DispExt:    
 
     BUBBLE_RADIUS = 16
-    PREPROCESS_CONV_SIZE = 3
-    BEST_POINT_CONV_SIZE = 80
+    PREPROCESS_CONV_SIZE = 16
+    BEST_POINT_CONV_SIZE = 8
     MAX_LIDAR_DIST = 40 
     STRAIGHTS_SPEED = 8.0
     CORNERS_SPEED = 5.0
@@ -14,6 +14,7 @@ class DispExt:
         # used when calculating the angles of the LiDAR data
         self.radians_per_elem = None
         self.n_beams = None
+        self.max_steer = conf.max_steer
         self.straight_speed = run.max_speed * 0.7
         self.corner_speed = self.straight_speed * 0.625
     
@@ -89,7 +90,8 @@ class DispExt:
         best = self.find_best_point(gap_start, gap_end, proc_ranges)
 
         #Publish Drive message
-        steering_angle = self.get_angle(best, len(proc_ranges)) / np.pi
+        steering_angle = self.get_angle(best, len(proc_ranges))
+        steering_angle = np.clip(steering_angle, -self.max_steer, self.max_steer)
         if abs(steering_angle) > self.STRAIGHTS_STEERING_ANGLE:
             speed = self.corner_speed
         else: speed = self.straight_speed
