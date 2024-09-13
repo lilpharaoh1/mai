@@ -140,11 +140,12 @@ class TestSimulation():
         sim_steps, done = sim_steps, False
         while sim_steps > 0 and not done:
             obs, step_reward, done, _ = self.env.step(actions)
+            # print("In run_step, obs[collisions] :", obs["collisions"])
             sim_steps -= 1
         
-        observation = self.build_observation(obs, done)
+        observations = self.build_observation(obs, done)
         
-        return observation
+        return observations
 
     def build_observation(self, obs, done):
         """Build observation
@@ -181,8 +182,12 @@ class TestSimulation():
             observation['colision_done'] = False
 
             observation['reward'] = 0.0
-            if done and obs['lap_counts'][agent_id] == 0: 
+            ## Fixed collisions so shouldn't need this method anymore
+            # if done and obs['lap_counts'][agent_id] == 0:
+                # observation['colision_done'] = True
+            if obs['collisions'][agent_id] == 1.:
                 observation['colision_done'] = True
+
             if self.std_track is not None:
                 if self.std_track.check_done(observation) and obs['lap_counts'][agent_id] == 0:
                     observation['colision_done'] = True

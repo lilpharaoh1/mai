@@ -239,6 +239,8 @@ class F110Env(gym.Env):
             if self.toggle_list[i] < 4:
                 self.lap_times[i] = self.current_time
         
+
+        # print("in f110_env, self.collision :", self.collisions)
         done = (self.collisions[self.ego_idx]) or (np.all(self.toggle_list >= 2) and self.current_time > 10)
         # This number (2) is 2x the number of laps desired
         
@@ -252,12 +254,14 @@ class F110Env(gym.Env):
 
         return done, self.toggle_list >= 4
 
-    def check_location(self):
-        location = np.array([self.poses_x[0], self.poses_y[0]])
-        p_done = self.sim.agents[0].scan_simulator.check_location(location)
+    def check_location(self, agent_id):
+        location = np.array([self.poses_x[agent_id], self.poses_y[agent_id]])
+
+        p_done = self.sim.agents[agent_id].scan_simulator.check_location(location, agent_id=agent_id)
         if not p_done:
             return False
-        print(f"Personl done called: {location}")
+        if agent_id == 0:
+            print(f"Personal done called: {location}")
         return True
 
     def _update_state(self, obs_dict):
@@ -314,9 +318,10 @@ class F110Env(gym.Env):
 
         # check done
         done, toggle_list = self._check_done()
-        if self.check_location():
-            obs['collisions'][0] = True
-            done = True
+        for agent_id in range(self.num_agents):
+            if self.check_location(agent_id):
+                obs['collisions'][agent_id] = True
+                done = True if agent_id == 0 else done
 
         info = {'checkpoint_done': toggle_list}
 

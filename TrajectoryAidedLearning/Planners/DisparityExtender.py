@@ -2,17 +2,20 @@ import numpy as np
 
 class DispExt:    
 
-    BUBBLE_RADIUS = 160
+    BUBBLE_RADIUS = 16
     PREPROCESS_CONV_SIZE = 3
     BEST_POINT_CONV_SIZE = 80
-    MAX_LIDAR_DIST = 3000000
+    MAX_LIDAR_DIST = 40 
     STRAIGHTS_SPEED = 8.0
     CORNERS_SPEED = 5.0
     STRAIGHTS_STEERING_ANGLE = np.pi / 18  # 10 degrees
     
-    def __init__(self):
+    def __init__(self, run, conf):
         # used when calculating the angles of the LiDAR data
         self.radians_per_elem = None
+        self.n_beams = None
+        self.straight_speed = run.max_speed * 0.7
+        self.corner_speed = self.straight_speed * 0.625
     
     def preprocess_lidar(self, ranges):
         """ Preprocess the LiDAR scan array. Expert implementation includes:
@@ -20,8 +23,9 @@ class DispExt:
             2.Rejecting high values (eg. > 3m)
         """
         self.radians_per_elem = (2*np.pi) / len(ranges)
-	# we won't use the LiDAR data from directly behind us
-        proc_ranges = ranges # no need to cut values # np.array(ranges[135:-135])
+        self.n_beams = len(ranges)
+	    # we won't use the LiDAR data from directly behind us
+        proc_ranges = np.array(ranges[self.n_beams//8:-self.n_beams//8])
         # sets each value to the mean over a given window
         proc_ranges = np.convolve(proc_ranges, np.ones(self.PREPROCESS_CONV_SIZE), 'same') / self.PREPROCESS_CONV_SIZE
         proc_ranges = np.clip(proc_ranges, 0, self.MAX_LIDAR_DIST)
@@ -85,9 +89,11 @@ class DispExt:
         best = self.find_best_point(gap_start, gap_end, proc_ranges)
 
         #Publish Drive message
-        steering_angle = self.get_angle(best, len(proc_ranges))
+        steering_angle = self.get_angle(best, len(proc_ranges)) / np.pi
         if abs(steering_angle) > self.STRAIGHTS_STEERING_ANGLE:
-            speed = self.CORNERS_SPEED
-        else: speed = self.STRAIGHTS_SPEED
+            speed = self.corner_speed
+        else: speed = self.straight_speed
+        # print('Speed in m/s: {}'.format((speed)))
         # print('Steering angle in degrees: {}'.format((steering_angle/(np.pi/2))*90))
-        return speed, steering_angle
+        return 0.4, 0.4
+        return steering_angle, speed

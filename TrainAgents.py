@@ -47,7 +47,7 @@ def select_agent(run, conf, architecture):
     elif agent_type == "TD3Window":
         agent = AgentTrainerWindow(run, conf)
     elif agent_type == "DispExt":
-        agent = DispExt()
+        agent = DispExt(run, conf)
     else: raise Exception("Unknown agent type: " + agent_type)
 
     return agent
@@ -128,12 +128,10 @@ class TrainSimulation(TestSimulation):
         for i in range(self.n_train_steps):
             self.prev_obs = target_obs # used for calculating reward, so only wanst target_obs
             target_action = self.target_planner.plan(observations[0])
+            target_action = np.array([0.0, 0.0])
             if len(self.adv_planners) > 0:
-                adv_actions = np.array([adv.plan(obs) for (adv, obs) in zip(self.adv_planners, observations[1:])])
-                print("(target_action, adv_actions) :", (target_action, adv_actions))
-                print("(target_action, adv_actions) :", (target_action.shape, adv_actions.shape))
+                adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
                 actions = np.concatenate((target_action.reshape(1, -1), adv_actions), axis=0)
-                print("actions :", actions)
             else:
                 actions = target_actions
             observations = self.run_step(actions)
