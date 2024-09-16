@@ -172,9 +172,11 @@ class AgentTesterWindow:
         self.v_min_plan = conf.v_min_plan
         self.path = conf.vehicle_path + run.path + run.run_name 
 
-        self.actor = torch.load(self.path + '/' + run.run_name + "_actor.pth")
-
         self.architecture = FastArchitectureWindow(run, conf)
+
+        self.agent = TD3Window(self.architecture.state_space, self.architecture.action_space, 1, run.run_name)
+        self.agent.create_agent(conf.h_size)
+        self.agent.actor = torch.load(self.path + '/' + run.run_name + "_actor.pth")
 
         print(f"Agent loaded: {run.run_name}")
 
@@ -186,7 +188,7 @@ class AgentTesterWindow:
             return self.action
 
         nn_obs = torch.FloatTensor(nn_obs.reshape(1, -1))
-        nn_action = self.actor(nn_obs).data.numpy().flatten()
+        nn_action = self.agent.act(nn_obs, noise=0.0).flatten()
         self.nn_act = nn_action
 
         self.action = self.architecture.transform_action(nn_action)
