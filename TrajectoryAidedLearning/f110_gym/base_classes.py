@@ -1,3 +1,4 @@
+
 # MIT License
 
 # Copyright (c) 2020 Joseph Auckley, Matthew O'Kelly, Aman Sinha, Hongrui Zheng
@@ -390,8 +391,9 @@ class RaceCar(object):
 
         current_scan = agent_scans[agent_index]
 
-        # check ttc
-        self.check_ttc(current_scan)
+        # REMOVED Causing agents to freeze for some reason??? 
+        # # check ttc
+        # self.check_ttc(current_scan)
 
         # ray cast other agents to modify scan
         new_scan = self.ray_cast_agents(current_scan)
@@ -547,13 +549,13 @@ class Simulator(object):
 
         #! this is bad!!!!!!!!!!!!!!!!
         # removed to prevent instant crashing due to bug.....
-        # for i, agent in enumerate(self.agents):
-        #     # update agent's information on other agents
-        #     opp_poses = np.concatenate((self.agent_poses[0:i, :], self.agent_poses[i+1:, :]), axis=0)
-        #     agent.update_opp_poses(opp_poses)
+        for i, agent in enumerate(self.agents):
+            # update agent's information on other agents
+            opp_poses = np.concatenate((self.agent_poses[0:i, :], self.agent_poses[i+1:, :]), axis=0)
+            agent.update_opp_poses(opp_poses)
 
-        #     # update each agent's current scan based on other agents
-        #     agent.update_scan(agent_scans, i)
+            # update each agent's current scan based on other agents
+            agent.update_scan(agent_scans, i)
 
         #     # update agent collision with environment
         #     if agent.in_collision:
