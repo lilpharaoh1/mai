@@ -423,9 +423,10 @@ class ScanSimulator2D(object):
         return self.angle_increment
 
     def check_location(self, pose):
-        if check_bounds(pose[0], pose[1], self.orig_x, self.orig_y, self.orig_c, self.orig_s, self.map_height, self.map_width, self.map_resolution):
+        bounds_check = check_bounds(pose[0], pose[1], self.orig_x, self.orig_y, self.orig_c, self.orig_s, self.map_height, self.map_width, self.map_resolution)
+        if bounds_check:
             return True
-        d = distance_transform(pose[0], pose[1], self.orig_x, self.orig_y, self.orig_c, self.orig_s, self.map_height, self.map_width, self.map_resolution, self.dt)
+        d = distance_transform(pose[0], pose[1], self.orig_x, self.orig_y, self.orig_c, self.orig_s, self.map_height, self.map_width, self.map_resolution, self.dt)   
         if d < 0.001: #1mm
             return True
         return False

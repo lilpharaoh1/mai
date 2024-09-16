@@ -184,7 +184,7 @@ class RaceCar(object):
                     else:
                         # between pi/2 and pi
                         to_side = dist_sides / np.cos(angle - np.pi/2.)
-                        to_fr = dist_fr / np.sin(angle - np.pi/2.)
+                        to_fr = dist_fr / (np.sin(angle - np.pi/2.) + 1e-8)
                         RaceCar.side_distances[i] = min(to_side, to_fr)
                 else:
                     if angle > -np.pi/2:
@@ -195,7 +195,7 @@ class RaceCar(object):
                     else:
                         # between -pi/2 and -pi
                         to_side = dist_sides / np.cos(-angle - np.pi/2)
-                        to_fr = dist_fr / np.sin(-angle - np.pi/2)
+                        to_fr = dist_fr / (np.sin(-angle - np.pi/2) + 1e-8)
                         RaceCar.side_distances[i] = min(to_side, to_fr)
 
     def update_params(self, params):
@@ -442,7 +442,7 @@ class Simulator(object):
 
         # initializing agents
         fov = np.pi 
-        n_beams = 20
+        n_beams = 108
         #TODO: add in a parameter file for each car that can be passed on
         for i in range(self.num_agents):
             if i == ego_idx:
