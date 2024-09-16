@@ -9,7 +9,7 @@ from TrajectoryAidedLearning.Utils.utils import init_file_struct
 from matplotlib import pyplot as plt
 
 
-class FastArchitecture:
+class FastArchitectureWindow:
     def __init__(self, run, conf):
         self.state_space = conf.n_beams 
         self.range_finder_scale = conf.range_finder_scale
@@ -75,7 +75,7 @@ class AgentTrainerWindow:
         self.nn_act = None
         self.action = None
 
-        self.architecture = FastArchitecture(run, conf)
+        self.architecture = FastArchitectureWindow(run, conf)
 
         self.agent = TD3Window(self.architecture.state_space, self.architecture.action_space, 1, run.run_name)
         self.agent.create_agent(conf.h_size)
@@ -158,7 +158,7 @@ class AgentTrainerWindow:
         self.t_his.save_csv_data()
         self.agent.save(self.path)
 
-class AgentTester:
+class AgentTesterWindow:
     def __init__(self, run, conf):
         """
         Testing vehicle using the reference modification navigation stack
@@ -174,7 +174,7 @@ class AgentTester:
 
         self.actor = torch.load(self.path + '/' + run.run_name + "_actor.pth")
 
-        self.architecture = FastArchitecture(run, conf)
+        self.architecture = FastArchitectureWindow(run, conf)
 
         print(f"Agent loaded: {run.run_name}")
 

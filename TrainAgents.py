@@ -8,7 +8,7 @@ from TrajectoryAidedLearning.Utils.utils import *
 from TrajectoryAidedLearning.Planners.PurePursuit import PurePursuit
 from TrajectoryAidedLearning.Planners.DisparityExtender import DispExt
 from TrajectoryAidedLearning.Planners.AgentPlanners import AgentTrainer, AgentTester
-from TrajectoryAidedLearning.Planners.AgentPlannersWindow import AgentTrainerWindow
+from TrajectoryAidedLearning.Planners.AgentPlannersWindow import AgentTrainerWindow, AgentTesterWindow
 
 
 from TrajectoryAidedLearning.Utils.RewardSignals import *
@@ -38,14 +38,14 @@ def select_reward_function(run, conf, std_track):
     return reward_function
 
 # TODO move to utils
-def select_agent(run, conf, architecture):
+def select_agent(run, conf, architecture, train=True):
     agent_type = architecture if architecture is not None else "TD3"
     if agent_type == "PP":
         agent = PurePursuit(run, conf)
     elif agent_type == "TD3" or agent_type == "fast":
-        agent = AgentTrainer(run, conf)
+        agent = AgentTrainer(run, conf) if train else AgentTester(run, conf)
     elif agent_type == "TD3Window":
-        agent = AgentTrainerWindow(run, conf)
+        agent = AgentTrainerWindow(run, conf) if train else AgentTesterWindow(run, conf)
     elif agent_type == "DispExt":
         agent = DispExt(run, conf)
     else: raise Exception("Unknown agent type: " + agent_type)
@@ -94,7 +94,8 @@ class TrainSimulation(TestSimulation):
             self.run_training()
 
             #Test
-            self.planner = AgentTester(run, self.conf)
+            self.target_planner = select_agent(run, self.conf, run.architecture, train=False)
+            self.adv_planners = [select_agent(run, self.conf, architecture, train=False) for architecture in run.adversaries]
 
             self.vehicle_state_history = VehicleStateHistory(run, "Testing/")
 
@@ -129,7 +130,6 @@ class TrainSimulation(TestSimulation):
         for i in range(self.n_train_steps):
             self.prev_obs = observations # used for calculating reward, so only wanst target_obs
             target_action = self.target_planner.plan(observations[0])
-            target_action = np.array([0.0, 0.0])
             if len(self.adv_planners) > 0:
                 adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
                 actions = np.concatenate((target_action.reshape(1, -1), adv_actions), axis=0)
@@ -163,7 +163,7 @@ class TrainSimulation(TestSimulation):
                 if self.vehicle_state_history: self.vehicle_state_history.save_history(f"train_{lap_counter}", test_map=self.map_name)
                 lap_counter += 1
 
-                observation = self.reset_simulation()
+                observations = self.reset_simulation()
                 self.target_planner.save_training_data()
 
 

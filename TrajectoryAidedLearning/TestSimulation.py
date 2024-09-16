@@ -97,22 +97,33 @@ class TestSimulation():
         start_time = time.time()
 
         for i in range(self.n_test_laps):
-            observation = self.reset_simulation()
+            observations = self.reset_simulation()
+            target_obs = observations[0]
 
-            while not observation['colision_done'] and not observation['lap_done']:
-                action = self.target_planner.plan(observation)
-                observation = self.run_step(action)
+
+            while not target_obs['colision_done'] and not target_obs['lap_done'] and not target_obs['current_laptime'] > self.conf.max_laptime:
+                target_action = self.target_planner.plan(observations[0])
+                if len(self.adv_planners) > 0:
+                    adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
+                    actions = np.concatenate((target_action.reshape(1, -1), adv_actions), axis=0)
+                else:
+                    actions = target_actions
+                observations = self.run_step(actions)
+                target_obs = observations[0]
+
                 if SHOW_TEST: self.env.render('human_fast')
 
-            self.planner.lap_complete()
-            if observation['lap_done']:
-                if VERBOSE: print(f"Lap {i} Complete in time: {observation['current_laptime']}")
-                self.lap_times.append(observation['current_laptime'])
+            self.target_planner.lap_complete()
+            if target_obs['lap_done']:
+                if VERBOSE: print(f"Lap {i} Complete in time: {target_obs['current_laptime']}")
+                self.lap_times.append(target_obs['current_laptime'])
                 self.completed_laps += 1
 
-            if observation['colision_done']:
-                if VERBOSE: print(f"Lap {i} Crashed in time: {observation['current_laptime']}")
-                    
+            if target_obs['colision_done']:
+                if VERBOSE: print(f"Lap {i} Crashed in time: {target_obs['current_laptime']}")
+            
+            if target_obs['current_laptime'] > self.conf.max_laptime:
+                if VERBOSE: print(f"Lap {i} LapTimeExceeded in time: {target_obs['current_laptime']}")
 
             if self.vehicle_state_history: self.vehicle_state_history.save_history(i, test_map=self.map_name)
 
@@ -185,6 +196,7 @@ class TestSimulation():
             observation['colision_done'] = False
 
             observation['reward'] = 0.0
+
             ## Fixed collisions so shouldn't need this method anymore
             # if done and obs['lap_counts'][agent_id] == 0:
                 # observation['colision_done'] = True
@@ -211,8 +223,8 @@ class TestSimulation():
                 reward_action = None if self.prev_action is None else self.prev_action[agent_id]
                 observation['reward'] = self.reward(observation, reward_obs, reward_action)
 
-            if self.vehicle_state_history:
-                self.vehicle_state_history.add_state(obs['full_states'][agent_id])
+            if self.vehicle_state_history and agent_id == 0:
+                self.vehicle_state_history.add_state(obs['full_states'][0])
 
             # Append agent_observation to total observations
             observations.append(observation)
@@ -248,9 +260,10 @@ class TestSimulation():
         if SHOW_TRAIN: self.env.render('human_fast')
 
         self.prev_obs = None
-        observation = self.build_observation(obs, done)
         if self.std_track is not None:
             self.std_track.max_distance = np.zeros((self.num_agents))
+
+        observation = self.build_observation(obs, done)
 
         return observation
 
