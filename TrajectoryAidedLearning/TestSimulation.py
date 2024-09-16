@@ -192,12 +192,13 @@ class TestSimulation():
                 observation['colision_done'] = True
 
             if self.std_track is not None:
-                if self.std_track.check_done(agent_id, observation) and obs['lap_counts'][agent_id] == 0:
+                if (self.std_track.check_done(agent_id, observation) and obs['lap_counts'][agent_id] == 0) \
+                                    or (not self.prev_obs is None and self.prev_obs[agent_id]['colision_done']):
                     observation['colision_done'] = True
 
                 if self.prev_obs is None: observation['progress'] = 0
-                elif self.prev_obs['lap_done'] == True: observation['progress'] = 0
-                else: observation['progress'] = max(self.std_track.calculate_progress_percent(state[0:2]), self.prev_obs['progress'])
+                elif self.prev_obs[agent_id]['lap_done'] == True: observation['progress'] = 0
+                else: observation['progress'] = max(self.std_track.calculate_progress_percent(state[0:2]), self.prev_obs[agent_id]['progress'])
                 # self.racing_race_track.plot_vehicle(state[0:2], state[2])
                 # taking the max progress
                 
@@ -206,7 +207,9 @@ class TestSimulation():
                 observation['lap_done'] = True
 
             if self.reward and agent_id == 0: # ie. if target_planner
-                observation['reward'] = self.reward(observation, self.prev_obs, self.prev_action)
+                reward_obs = None if self.prev_obs is None else self.prev_obs[agent_id]
+                reward_action = None if self.prev_action is None else self.prev_action[agent_id]
+                observation['reward'] = self.reward(observation, reward_obs, reward_action)
 
             if self.vehicle_state_history:
                 self.vehicle_state_history.add_state(obs['full_states'][agent_id])
@@ -246,7 +249,6 @@ class TestSimulation():
 
         self.prev_obs = None
         observation = self.build_observation(obs, done)
-        # self.prev_obs = observation
         if self.std_track is not None:
             self.std_track.max_distance = np.zeros((self.num_agents))
 

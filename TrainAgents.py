@@ -127,8 +127,9 @@ class TrainSimulation(TestSimulation):
         target_obs = observations[0]
 
         for i in range(self.n_train_steps):
-            self.prev_obs = target_obs # used for calculating reward, so only wanst target_obs
+            self.prev_obs = observations # used for calculating reward, so only wanst target_obs
             target_action = self.target_planner.plan(observations[0])
+            target_action = np.array([0.0, 0.0])
             if len(self.adv_planners) > 0:
                 adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
                 actions = np.concatenate((target_action.reshape(1, -1), adv_actions), axis=0)
