@@ -7,9 +7,7 @@ from TrajectoryAidedLearning.Utils.utils import *
 
 from TrajectoryAidedLearning.Planners.PurePursuit import PurePursuit
 from TrajectoryAidedLearning.Planners.DisparityExtender import DispExt
-from TrajectoryAidedLearning.Planners.AgentPlanners import AgentTrainer, AgentTester
-from TrajectoryAidedLearning.Planners.AgentPlannersWindow import AgentTrainerWindow, AgentTesterWindow
-
+from TrajectoryAidedLearning.Planners.TD3Planners import TD3Trainer, TD3Tester
 
 from TrajectoryAidedLearning.Utils.RewardSignals import *
 from TrajectoryAidedLearning.Utils.StdTrack import StdTrack
@@ -42,10 +40,8 @@ def select_agent(run, conf, architecture, train=True):
     agent_type = architecture if architecture is not None else "TD3"
     if agent_type == "PP":
         agent = PurePursuit(run, conf)
-    elif agent_type == "TD3" or agent_type == "fast":
-        agent = AgentTrainer(run, conf) if train else AgentTester(run, conf)
-    elif agent_type == "TD3Window":
-        agent = AgentTrainerWindow(run, conf) if train else AgentTesterWindow(run, conf)
+    elif agent_type == "TD3":
+        agent = TD3Trainer(run, conf) if train else TD3Tester(run, conf)
     elif agent_type == "DispExt":
         agent = DispExt(run, conf)
     else: raise Exception("Unknown agent type: " + agent_type)
