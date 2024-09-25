@@ -3,7 +3,7 @@ from TrajectoryAidedLearning.Utils.utils import *
 from TrajectoryAidedLearning.Utils.HistoryStructs import VehicleStateHistory
 
 from TrajectoryAidedLearning.Planners.PurePursuit import PurePursuit
-from TrajectoryAidedLearning.Planners.AgentPlanners import AgentTester
+from TrajectoryAidedLearning.Planners.TD3Planners import TD3Tester
 
 
 

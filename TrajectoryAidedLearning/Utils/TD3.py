@@ -8,6 +8,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from TrajectoryAidedLearning.Utils.Buffer import SmartBuffer
+
 MEMORY_SIZE = 100000
 
 
@@ -20,59 +22,13 @@ NOISE_CLIP = 0.5
 EXPLORE_NOISE = 0.1
 POLICY_FREQUENCY = 2
 POLICY_NOISE = 0.2
-
-
-class SmartBufferTD3(object):
-    def __init__(self, max_size=1000000, state_dim=14, act_dim=1):     
-        self.max_size = max_size
-        self.state_dim = state_dim
-        self.act_dim = act_dim
-        self.ptr = 0
-
-        self.states = np.empty((max_size, state_dim))
-        self.actions = np.empty((max_size, act_dim))
-        self.next_states = np.empty((max_size, state_dim))
-        self.rewards = np.empty((max_size, 1))
-        self.dones = np.empty((max_size, 1))
-
-    def add(self, s, a, s_p, r, d):
-        self.states[self.ptr] = s
-        self.actions[self.ptr] = a
-        self.next_states[self.ptr] = s_p
-        self.rewards[self.ptr] = r
-        self.dones[self.ptr] = d
-
-        self.ptr += 1
-        
-        if self.ptr == self.max_size-1: self.ptr = 0 #! crisis
-        # if self.ptr == 99999: self.ptr = 0 #! crisis
-
-    def sample(self, batch_size):
-        ind = np.random.randint(0, self.ptr-1, size=batch_size)
-        states = np.empty((batch_size, self.state_dim))
-        actions = np.empty((batch_size, self.act_dim))
-        next_states = np.empty((batch_size, self.state_dim))
-        rewards = np.empty((batch_size, 1))
-        dones = np.empty((batch_size, 1))
-
-        for i, j in enumerate(ind): 
-            states[i] = self.states[j]
-            actions[i] = self.actions[j]
-            next_states[i] = self.next_states[j]
-            rewards[i] = self.rewards[j]
-            dones[i] = self.dones[j]
-
-        return states, actions, next_states, rewards, dones
-
-    def size(self):
-        return self.ptr
-
+WINDOW_SIZE = 5
 
 class Actor(nn.Module):   
-    def __init__(self, state_dim, action_dim, max_action, h_size):
+    def __init__(self, state_dim, action_dim, max_action, h_size, window_in=1):
         super(Actor, self).__init__()
 
-        self.l1 = nn.Linear(state_dim, h_size)
+        self.l1 = nn.Linear(state_dim*window_in, h_size)
         self.l2 = nn.Linear(h_size, h_size)
         self.l3 = nn.Linear(h_size, action_dim)
 
@@ -85,16 +41,16 @@ class Actor(nn.Module):
         return x
 
 class Critic(nn.Module):
-    def __init__(self, state_dim, action_dim, h_size):
+    def __init__(self, state_dim, action_dim, h_size, window_in=1):
         super(Critic, self).__init__()
 
         # Q1 architecture
-        self.l1 = nn.Linear(state_dim + action_dim, h_size)
+        self.l1 = nn.Linear((state_dim)*window_in + action_dim, h_size)
         self.l2 = nn.Linear(h_size, h_size)
         self.l3 = nn.Linear(h_size, 1)
 
         # Q2 architecture
-        self.l4 = nn.Linear(state_dim + action_dim, h_size)
+        self.l4 = nn.Linear((state_dim)*window_in + action_dim, h_size)
         self.l5 = nn.Linear(h_size, h_size)
         self.l6 = nn.Linear(h_size, 1)
 
@@ -121,11 +77,14 @@ class Critic(nn.Module):
 
 
 class TD3(object):
-    def __init__(self, state_dim, action_dim, max_action, name):
+    def __init__(self, state_dim, action_dim, name, max_action=1, window_in=1, window_out=1):
         self.name = name
         self.state_dim = state_dim
         self.max_action = max_action
         self.act_dim = action_dim
+        self.window_in = window_in
+        self.window_out = window_out
+        self.state_buff = None
 
         self.actor = None
         self.actor_target = None
@@ -135,19 +94,19 @@ class TD3(object):
         self.critic_target = None
         self.critic_optimizer = None
 
-        self.replay_buffer = SmartBufferTD3(state_dim=state_dim, act_dim=action_dim)
+        self.replay_buffer = SmartBuffer(state_dim=state_dim, act_dim=action_dim, window_in=window_in, window_out=window_out)
 
     def create_agent(self, h_size):
         state_dim = self.state_dim
         action_dim = self.act_dim
         max_action = self.max_action
-        self.actor = Actor(state_dim, action_dim, max_action, h_size)
-        self.actor_target = Actor(state_dim, action_dim, max_action, h_size)
+        self.actor = Actor(state_dim, action_dim, max_action, h_size, window_in=self.window_in)
+        self.actor_target = Actor(state_dim, action_dim, max_action, h_size, window_in=self.window_in)
         self.actor_target.load_state_dict(self.actor.state_dict())
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-3)
 
-        self.critic = Critic(state_dim, action_dim, h_size)
-        self.critic_target = Critic(state_dim, action_dim, h_size)
+        self.critic = Critic(state_dim, action_dim, h_size, window_in=self.window_in)
+        self.critic_target = Critic(state_dim, action_dim, h_size, window_in=self.window_in)
         self.critic_target.load_state_dict(self.critic.state_dict())
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-3)
 
@@ -155,7 +114,12 @@ class TD3(object):
         return self.act(state, noise=noise)
 
     def act(self, state, noise=0.1):
-        state = torch.FloatTensor(state.reshape(1, -1))
+        if self.state_buff is None:
+            self.state_buff = np.tile(state, (self.window_in, 1))
+        else:
+            self.state_buff[:-1] = self.state_buff[1:]
+            self.state_buff[-1] = state
+        state = torch.FloatTensor(self.state_buff.reshape(1, -1))
 
         action = self.actor(state).data.numpy().flatten()
         if noise != 0: 
@@ -178,14 +142,23 @@ class TD3(object):
         for it in range(iterations):
             # Sample replay buffer 
             x, u, y, r, d = self.replay_buffer.sample(BATCH_SIZE)
+            
+            # Flatten windows
+            x = x.reshape(x.shape[0], -1)
+            u = u.reshape(u.shape[0], -1)
+            y = y.reshape(y.shape[0], -1)
+            d = d.reshape(d.shape[0], -1)
+            r = r.reshape(r.shape[0], -1)
+
+            # Turn into tensors
             state = torch.FloatTensor(x)
             action = torch.FloatTensor(u)
             next_state = torch.FloatTensor(y)
-            done = torch.FloatTensor(1 - d)
+            done = torch.FloatTensor((1 - d))
             reward = torch.FloatTensor(r)
 
-            # Select action according to policy and add clipped noise 
-            noise = torch.FloatTensor(u).data.normal_(0, POLICY_NOISE)
+            # Select action according to policy and add clipped noise (for exploration) 
+            noise = torch.FloatTensor(u[:, -self.act_dim:]).data.normal_(0, POLICY_NOISE)
             noise = noise.clamp(-NOISE_CLIP, NOISE_CLIP)
             next_action = (self.actor_target(next_state) + noise).clamp(-self.max_action, self.max_action)
 
@@ -195,7 +168,7 @@ class TD3(object):
             target_Q = reward + (done * GAMMA * target_Q).detach()
 
             # Get current Q estimates
-            current_Q1, current_Q2 = self.critic(state, action)
+            current_Q1, current_Q2 = self.critic(state, action[:, -self.act_dim:])
 
             # Compute critic loss
             critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q) 
