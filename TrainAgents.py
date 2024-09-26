@@ -44,7 +44,7 @@ def select_agent(run, conf, architecture, train=True):
     elif agent_type == "TD3":
         agent = TD3Trainer(run, conf) if train else TD3Tester(run, conf)
     elif agent_type == "SAC":
-        agent = TD3Trainer(run, conf) if train else TD3Tester(run, conf)
+        agent = SACTrainer(run, conf) if train else SACTester(run, conf)
     elif agent_type == "DispExt":
         agent = DispExt(run, conf)
     else: raise Exception("Unknown agent type: " + agent_type)

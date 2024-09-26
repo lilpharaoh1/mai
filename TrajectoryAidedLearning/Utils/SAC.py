@@ -115,7 +115,7 @@ class GaussianPolicy(nn.Module):
     def sample(self, state):
         mean, log_std = self.forward(state)
         std = log_std.exp()
-        normal = Normal(mean, std)
+        normal = torch.distributions.Normal(mean, std)
         x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
         y_t = torch.tanh(x_t)
         action = y_t * self.action_scale + self.action_bias
@@ -205,24 +205,24 @@ class SAC(object):
         self.critic = QNetwork(state_dim, action_dim, h_size, window_in=self.window_in, window_out=self.window_out)
         self.critic_target = QNetwork(state_dim, action_dim, h_size, window_in=self.window_in, window_out=self.window_out)
         self.critic_target.load_state_dict(self.critic.state_dict())
-        self.critic_optimizer = Adam(self.critic.parameters(), lr=1e-3)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-3)
 
         if self.policy_type == "Gaussian":
             # Target Entropy = −dim(A) (e.g. , -6 for HalfCheetah-v2) as given in the paper
             self.alpha = ALPHA
             if self.automatic_entropy_tuning is True:
-                self.target_entropy = -torch.prod(torch.Tensor(action_dim)).item() # EMRAN, may have to be (2,1) instead of (2,)
+                self.target_entropy = -torch.prod(torch.Tensor((action_dim, 1))).item() # EMRAN, may have to be (2,1) instead of (2,)
                 self.log_alpha = torch.zeros(1, requires_grad=True)
-                self.alpha_optim = Adam([self.log_alpha], lr=1e-3)
+                self.alpha_optim = torch.optim.Adam([self.log_alpha], lr=1e-3)
 
-            self.policy = GaussianPolicy(num_inputs, action_dim, max_action, h_size, window_in=self.window_in, window_out=self.window_out)
-            self.policy_optim = Adam(self.policy.parameters(), lr=1e-3)
+            self.policy = GaussianPolicy(state_dim, action_dim, max_action, h_size, window_in=self.window_in, window_out=self.window_out)
+            self.policy_optim = torch.optim.Adam(self.policy.parameters(), lr=1e-3)
 
         else:
             self.alpha = 0
             self.automatic_entropy_tuning = False
-            self.policy = DeterministicPolicy(num_inputs, action_dim, max_action, h_size, window_in=self.window_in, window_out=self.window_out)
-            self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
+            self.policy = DeterministicPolicy(state_dim, action_dim, max_action, h_size, window_in=self.window_in, window_out=self.window_out)
+            self.policy_optim = torch.optim.Adam(self.policy.parameters(), lr=args.lr)
 
     def select_action(self, state, noise=0.1):
         return self.act(state, noise=noise)
@@ -235,7 +235,8 @@ class SAC(object):
             self.state_buff[-1] = state
         state = torch.FloatTensor(self.state_buff.reshape(1, -1))
 
-        action, _, _ = self.policy.sample(state).data.numpy().flatten() # action, log_prob, mean
+        action, _, _ = self.policy.sample(state) # action, log_prob, mean
+        action = action.data.numpy().flatten()
         if noise != 0: 
             action = (action + np.random.normal(0, noise, size=self.act_dim))
             
@@ -277,7 +278,8 @@ class SAC(object):
                 noise = torch.FloatTensor(u[:, -self.act_dim:]).data.normal_(0, POLICY_NOISE)
                 noise = noise.clamp(-NOISE_CLIP, NOISE_CLIP)                    
                 adpt_next_state = torch.cat((state[:, self.window_out*self.state_dim:], next_state), 1) if self.window_out < self.window_in else next_state
-                next_action, next_state_log_pi, _ = (self.policy.sample(adpt_next_state) + noise).clamp(-self.max_action, self.max_action)
+                next_action, next_state_log_pi, _ = self.policy.sample(adpt_next_state)
+                next_action = (next_action + noise).clamp(-self.max_action, self.max_action)
                 # Compute the target Q value
                 target_Q1, target_Q2 = self.critic_target(adpt_next_state, next_action)
                 target_Q = torch.min(target_Q1, target_Q2) - self.alpha * next_state_log_pi
@@ -294,22 +296,9 @@ class SAC(object):
             critic_loss.backward()
             self.critic_optimizer.step()
 
-            if self.automatic_entropy_tuning:
-                alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
+            pi, log_pi, _ = self.policy.sample(state)
 
-                self.alpha_optim.zero_grad()
-                alpha_loss.backward()
-                self.alpha_optim.step()
-
-                self.alpha = self.log_alpha.exp()
-                alpha_tlogs = self.alpha.clone() # For TensorboardX logs
-            else:
-                alpha_loss = torch.tensor(0.)
-                alpha_tlogs = torch.tensor(self.alpha) # For TensorboardX logs
-
-            pi, log_pi, _ = self.policy.sample(state_batch)
-
-            qf1_pi, qf2_pi = self.critic(state_batch, pi)
+            qf1_pi, qf2_pi = self.critic(state, pi)
             min_qf_pi = torch.min(qf1_pi, qf2_pi)
 
             policy_loss = ((self.alpha * log_pi) - min_qf_pi).mean() # Jπ = 𝔼st∼D,εt∼N[α * logπ(f(εt;st)|st) − Q(st,f(εt;st))]
@@ -318,10 +307,30 @@ class SAC(object):
             policy_loss.backward()
             self.policy_optim.step()
 
+            pi, log_pi, _ = self.policy.sample(state)
+
+
+            if self.automatic_entropy_tuning:
+                alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
+
+                self.alpha_optim.zero_grad()
+                alpha_loss.backward()
+                self.alpha_optim.step()
+
+
+                self.alpha = self.log_alpha.exp()
+                alpha_tlogs = self.alpha.clone() # For TensorboardX logs
+            else:
+                alpha_loss = torch.tensor(0.)
+                alpha_tlogs = torch.tensor(self.alpha) # For TensorboardX logs
+
+            pi, log_pi, _ = self.policy.sample(state)
+
             # Every POLICY FREQUENCY, update critic weights
             if it % POLICY_FREQUENCY == 0:
                 for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
                     target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
+                pi, log_pi, _ = self.policy.sample(state)
 
         total_loss = policy_loss + critic_loss
         
