@@ -142,7 +142,7 @@ class TD3(object):
         for it in range(iterations):
             # Sample replay buffer 
             x, u, y, r, d = self.replay_buffer.sample(BATCH_SIZE)
-            
+
             # Flatten windows
             x = x.reshape(x.shape[0], -1)
             u = u.reshape(u.shape[0], -1)
@@ -160,10 +160,11 @@ class TD3(object):
             # Select action according to policy and add clipped noise (for exploration) 
             noise = torch.FloatTensor(u[:, -self.act_dim:]).data.normal_(0, POLICY_NOISE)
             noise = noise.clamp(-NOISE_CLIP, NOISE_CLIP)
-            next_action = (self.actor_target(next_state) + noise).clamp(-self.max_action, self.max_action)
+            adpt_next_state = torch.cat((state[:, self.window_out*self.state_dim:], next_state), 1) if self.window_out < self.window_in else next_state
+            next_action = (self.actor_target(adpt_next_state) + noise).clamp(-self.max_action, self.max_action)
 
             # Compute the target Q value
-            target_Q1, target_Q2 = self.critic_target(next_state, next_action)
+            target_Q1, target_Q2 = self.critic_target(adpt_next_state, next_action)
             target_Q = torch.min(target_Q1, target_Q2)
             target_Q = reward + (done * GAMMA * target_Q).detach()
 

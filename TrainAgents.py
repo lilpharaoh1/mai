@@ -8,6 +8,7 @@ from TrajectoryAidedLearning.Utils.utils import *
 from TrajectoryAidedLearning.Planners.PurePursuit import PurePursuit
 from TrajectoryAidedLearning.Planners.DisparityExtender import DispExt
 from TrajectoryAidedLearning.Planners.TD3Planners import TD3Trainer, TD3Tester
+from TrajectoryAidedLearning.Planners.SACPlanners import SACTrainer, SACTester
 
 from TrajectoryAidedLearning.Utils.RewardSignals import *
 from TrajectoryAidedLearning.Utils.StdTrack import StdTrack
@@ -41,6 +42,8 @@ def select_agent(run, conf, architecture, train=True):
     if agent_type == "PP":
         agent = PurePursuit(run, conf)
     elif agent_type == "TD3":
+        agent = TD3Trainer(run, conf) if train else TD3Tester(run, conf)
+    elif agent_type == "SAC":
         agent = TD3Trainer(run, conf) if train else TD3Tester(run, conf)
     elif agent_type == "DispExt":
         agent = DispExt(run, conf)
