@@ -121,16 +121,28 @@ class TD3Tester:
         self.actor = torch.load(self.path + '/' + run.run_name + "_actor.pth")
 
         self.transform = FastTransform(run, conf)
+        self.window_in = run.window_in
+        self.n_beams = conf.n_beams
+        self.scan_buffer = np.zeros((self.window_in, self.n_beams))
 
         print(f"Agent loaded: {run.run_name}")
 
     def plan(self, obs):
-        nn_obs = self.transform.transform_obs(obs)
-
         if obs['state'][3] < self.v_min_plan:
             self.action = np.array([0, 7])
             return self.action
+        
+        nn_obs = self.transform.transform_obs(obs)
 
+
+        if self.scan_buffer.all() ==0: # first reading
+            for i in range(self.window_in):
+                self.scan_buffer[i, :] = nn_obs 
+        else:
+            self.scan_buffer = np.roll(self.scan_buffer, 1, axis=0)
+            self.scan_buffer[0, :] = nn_obs
+
+        nn_obs = np.reshape(self.scan_buffer, (self.window_in * self.n_beams))
         nn_obs = torch.FloatTensor(nn_obs.reshape(1, -1))
         nn_action = self.actor(nn_obs).data.numpy().flatten()
         self.nn_act = nn_action
