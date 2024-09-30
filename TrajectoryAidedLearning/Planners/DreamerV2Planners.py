@@ -18,9 +18,10 @@ class DreamerV2Trainer:
         self.v_min_plan =  conf.v_min_plan
 
         self.state = None
-        self.nn_state = None
-        self.nn_act = None
         self.action = None
+        self.nn_state = None
+        self.nn_rssm = None
+        self.nn_act = None
 
         self.transform = FastTransform(run, conf)
 
@@ -45,9 +46,7 @@ class DreamerV2Trainer:
             print(f"NAN in state: {nn_state}")
 
         self.nn_state = nn_state # after to prevent call before check for v_min_plan
-        self.nn_act = self.agent.act(self.nn_state, self.nn_act).squeeze(0)
-
-        print("self.nn_act.shape :", self.nn_act.shape)
+        self.nn_act = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm).squeeze(0)
 
         if np.isnan(self.nn_act).any():
             print(f"NAN in act: {nn_state}")

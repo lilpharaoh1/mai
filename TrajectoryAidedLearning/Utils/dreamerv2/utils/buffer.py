@@ -17,10 +17,10 @@ class TransitionBuffer():
 
         self.capacity = capacity
         self.obs_shape = obs_shape
-        self.seq_len = seq_len
         self.action_size = action_size
         self.obs_type = obs_type
         self.action_type = action_type
+        self.seq_len = seq_len
         self.batch_size = batch_size
         self.idx = 0
         self.full = False
@@ -37,7 +37,6 @@ class TransitionBuffer():
         done: bool,
     ):
         self.observation[self.idx] = obs
-        print("in add, obs.shape :", obs.shape)
         self.action[self.idx] = action 
         self.reward[self.idx] = reward
         self.terminal[self.idx] = done
@@ -50,30 +49,25 @@ class TransitionBuffer():
             idx = np.random.randint(0, self.capacity if self.full else self.idx - L)
             idxs = np.arange(idx, idx + L) % self.capacity
             valid_idx = not self.idx in idxs[1:] 
-
-        print("In _sample_idx, idxs.shape :", idxs.shape)
         return idxs
 
     def _retrieve_batch(self, idxs, n, l):
-        print("in _retrieve_batch, idxs.shape :", idxs.shape)
-        batched_idxs = idxs.flatten()
-        print("in _retrieve_batch, batched.shape :", batched_idxs.shape)
-        observation = self.observation[batched_idxs]
-        print("in _retrieve_batch, observation.shape :", observation.shape)
-        return observation.reshape(n, l, *self.obs_shape), self.action[batched_idxs].reshape(n, l, -1), self.reward[batched_idxs].reshape(n, l), self.terminal[batched_idxs].reshape(n, l)
+        vec_idxs = idxs.transpose().reshape(-1)
+        observation = self.observation[vec_idxs]
+        return observation.reshape(l, n, *self.obs_shape), self.action[vec_idxs].reshape(l, n, -1), self.reward[vec_idxs].reshape(l, n), self.terminal[vec_idxs].reshape(l, n)
 
     def sample(self):
         n = self.batch_size
         l = self.seq_len+1
         obs,act,rew,term = self._retrieve_batch(np.asarray([self._sample_idx(l) for _ in range(n)]), n, l)
         obs,act,rew,term = self._shift_sequences(obs,act,rew,term)
-        return obs, act, rew, term
+        return obs,act,rew,term
     
     def _shift_sequences(self, obs, actions, rewards, terminals):
-        obs = obs[:, 1:]
-        actions = actions[:, :-1]
-        rewards = rewards[:, :-1]
-        terminals = terminals[:, :-1]
+        obs = obs[1:]
+        actions = actions[:-1]
+        rewards = rewards[:-1]
+        terminals = terminals[:-1]
         return obs, actions, rewards, terminals
 
 #Following objects are not used
@@ -96,11 +90,10 @@ class EpisodicBuffer():
     ):
         self.total_episodes = total_episodes
         self.obs_shape = obs_shape
-        self.seq_len = seq_len
-        self.window_shape = (seq_len, *obs_shape)
         self.action_size = action_size
         self.obs_type = obs_type
         self.action_type = action_type
+        self.seq_len = seq_len
         self.batch_size = batch_size
         self.buffer = deque([], maxlen=total_episodes)
         self.lengths = deque([], maxlen=total_episodes)
@@ -127,14 +120,15 @@ class EpisodicBuffer():
             self.add_episode()
     
     def sample(self):
+        seq_len = self.seq_len
         batch_size = self.batch_size
         episode_list = random.choices(self.buffer, k=batch_size)
-        obs_batch = np.empty([batch_size, *self.window_shape], dtype=self.obs_type)
-        act_batch = np.empty([batch_size, self.action_size], dtype=self.action_type)
-        rew_batch = np.empty([batch_size], dtype=np.float32)
-        term_batch = np.empty([batch_size], dtype=bool)
+        obs_batch = np.empty([seq_len, batch_size, *self.obs_shape], dtype=self.obs_type)
+        act_batch = np.empty([seq_len, batch_size, self.action_size], dtype=self.action_type)
+        rew_batch = np.empty([seq_len, batch_size], dtype=np.float32)
+        term_batch = np.empty([seq_len, batch_size], dtype=bool)
         for ind, episode in enumerate(episode_list):
-            obs_batch[:,ind], act_batch[:,ind], rew_batch[:,ind], term_batch[:,ind] = self._sample_seq(episode, self.seq_len)
+            obs_batch[:,ind], act_batch[:,ind], rew_batch[:,ind], term_batch[:,ind] = self._sample_seq(episode, seq_len)
         return obs_batch, act_batch, rew_batch , term_batch
     
     def _sample_seq(self, episode, seq_len):

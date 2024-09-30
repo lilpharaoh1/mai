@@ -28,8 +28,8 @@ class DreamerV2(object):
         config = MultiAgent() if multiagent else SingleAgent()
         self.config = config
         self.kl_info = config.kl # used to compute kl_loss (???)
-        self.seq_len = self.window_in # Same as window_in
-        self.horizon = self.window_out # Same as window_out
+        self.seq_len = config.seq_len # Same as window_in
+        self.horizon = config.horizon # Same as window_out
         self.batch_size = config.batch_size
         self.collect_intervals = config.collect_intervals # Same as POLICY_FREQ
         self.seed_steps = config.seed_steps # How many episodes before training, we use window_in * BATCH_SIZE
@@ -54,21 +54,12 @@ class DreamerV2(object):
                 self.buffer.add(s,a,r,done)
                 s = ns    
 
-    def act(self, state, prev_action):
-        if self.state_buff is None:
-            self.state_buff = np.tile(state, (self.window_in, 1))
-        else:
-            self.state_buff[:-1] = self.state_buff[1:]
-            self.state_buff[-1] = state
-        state = torch.FloatTensor(self.state_buff)
-
+    def act(self, state, prev_action, prev_rssm):
+        state = state.reshape(1, 1, -1) # (1, 1, n_beams) # (single batch, single channel, n_beams)
         prev_action = torch.zeros(1, self.act_dim) if prev_action is None else torch.tensor(prev_action.reshape(1, -1))
-        prev_rssmstate = self.RSSM._init_rssm_state(1)
-        print
+        prev_rssmstate = self.RSSM._init_rssm_state(1) if prev_rssm is None else prev_rssm
         with torch.no_grad():
-            embed = self.ObsEncoder(state) # Should be torch.float32    
-            print("embed.shape :", embed.shape)
-            # print("prev_rssmstate.shape :", prev_rssmstate.shape)
+            embed = self.ObsEncoder(torch.FloatTensor(state)).unsqueeze(0) # Should be torch.float32
             _, posterior_rssm_state = self.RSSM.rssm_observe(embed.squeeze(0), prev_action, True, prev_rssmstate)
             model_state = self.RSSM.get_model_state(posterior_rssm_state)
             action, _ = self.ActionModel(model_state)
@@ -94,12 +85,11 @@ class DreamerV2(object):
         max_targ = []
         std_targ = []
 
-        if self.buffer.idx < self.batch_size * self.window_in:
+        if self.buffer.idx < self.batch_size * self.seq_len:
             return {}
 
         for i in range(self.collect_intervals):
             obs, actions, rewards, terms = self.buffer.sample()
-            print("obs.shape :", obs.shape)
             obs = torch.tensor(obs, dtype=torch.float32).to('cpu')                         #t, t+seq_len 
             actions = torch.tensor(actions, dtype=torch.float32).to('cpu')                 #t-1, t+seq_len-1
             rewards = torch.tensor(rewards, dtype=torch.float32).to('cpu').unsqueeze(-1)   #t-1 to t+seq_len-1
@@ -194,7 +184,6 @@ class DreamerV2(object):
         return actor_loss, value_loss, target_info
 
     def representation_loss(self, obs, actions, rewards, nonterms):
-
         embed = self.ObsEncoder(obs)                                         #t to t+seq_len   
         prev_rssm_state = self.RSSM._init_rssm_state(self.batch_size)   
         prior, posterior = self.RSSM.rollout_observation(self.seq_len, embed, actions, nonterms, prev_rssm_state)
@@ -305,10 +294,9 @@ class DreamerV2(object):
         self.DiscountModel.load_state_dict(saved_dict['DiscountModel'])
             
     def create_agent(self):
-        obs_shape = (self.state_dim,) # EMRAN I think it's input size without the window, and it'll use seq_len to fix, might not be though :/
+        obs_shape = (1, self.state_dim) # EMRAN I think it's input size without the window, and it'll use seq_len to fix, might not be though :/
         action_size = self.act_dim # EMRAN Same as this
         deter_size = self.config.rssm_info['deter_size']
-        print("deter_size :", deter_size)
         if self.config.rssm_type == 'continuous':
             stoch_size = self.config.rssm_info['stoch_size']
         elif self.config.rssm_type == 'discrete':

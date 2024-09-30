@@ -18,7 +18,7 @@ class ObsEncoder(nn.Module):
         self.k = k
         self.d = d
         self.convolutions = nn.Sequential(
-            nn.Conv1d(1, d, k),
+            nn.Conv1d(input_shape[0], d, k),
             activation(),
             nn.Conv1d(d, 2*d, k),
             activation(),
@@ -31,17 +31,16 @@ class ObsEncoder(nn.Module):
             self.fc_1 = nn.Linear(self.embed_size, embedding_size)
 
     def forward(self, obs):
-        n, l = obs.shape[:2] if len(obs.shape) == 3 else 1, obs.shape[0]
-        embed = self.convolutions(obs.reshape(n*l, 1, -1))
-        embed = torch.reshape(embed, (n*l, -1))
+        batch_shape = obs.shape[:-2]
+        img_shape = obs.shape[-2:]
+        embed = self.convolutions(obs.reshape(-1, *img_shape))
+        embed = torch.reshape(embed, (*batch_shape, -1))
         embed = self.fc_1(embed)
-        embed = torch.reshape(embed, (n, l, -1))
-        embed = torch.
         return embed
 
     @property
     def embed_size(self):
-        conv1_shape = conv_out_shape(self.shape, 0, self.k, 1)
+        conv1_shape = conv_out_shape(self.shape[1:], 0, self.k, 1)
         conv2_shape = conv_out_shape(conv1_shape, 0, self.k, 1)
         conv3_shape = conv_out_shape(conv2_shape, 0, self.k, 1)
         embed_size = int(4*self.d*np.prod(conv3_shape).item())
@@ -54,10 +53,11 @@ class ObsDecoder(nn.Module):
         :param embed_size: the size of input vector, for dreamerv2 : modelstate 
         """
         super(ObsDecoder, self).__init__()
+        c, _ = output_shape
         activation = info['activation']
         d = info['depth']
         k  = info['kernel']
-        conv1_shape = conv_out_shape(output_shape, 0, k, 1)
+        conv1_shape = conv_out_shape(output_shape[1:], 0, k, 1)
         conv2_shape = conv_out_shape(conv1_shape, 0, k, 1)
         conv3_shape = conv_out_shape(conv2_shape, 0, k, 1)
         self.conv_shape = (4*d, *conv3_shape)
@@ -71,7 +71,7 @@ class ObsDecoder(nn.Module):
             activation(),
             nn.ConvTranspose1d(2*d, d, k, 1),
             activation(),
-            nn.ConvTranspose1d(d, 1, k, 1),
+            nn.ConvTranspose1d(d, c, k, 1),
         )
 
     def forward(self, x):
