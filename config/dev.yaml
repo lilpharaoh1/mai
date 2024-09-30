@@ -4,9 +4,9 @@ test_name: "Cth_speeds"
 num_agents: 2
 target_position: 2
 
-architecture: "TD3"
-window_in: 5
-window_out: 5
+architecture: "DreamerV2"
+window_in: 15
+window_out: 10
 
 train_mode: "Std"
 test_mode: "Std"
@@ -17,6 +17,7 @@ set_n: 1
 random_seed: 10000
 
 n_train_steps: 100000
+# n_train_steps: 200
 n_test_laps: 20
 # n_test_laps: 50
 
@@ -25,18 +26,9 @@ reward: "Cth"
 
 adversaries:
   - architecture: DispExt
-  # - architecture: DispExt
-  # - architecture: DispExt
-  # - architecture: DispExt
-  # - architecture: DispExt
-  # - architecture: DispExt
-  # - architecture: DispExt
  
 
 runs:
-  # - max_speed: 4
-  # - max_speed: 5
-  # - max_speed: 6
   - max_speed: 7
   - max_speed: 8
 
