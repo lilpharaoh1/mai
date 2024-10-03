@@ -14,8 +14,9 @@ from TrajectoryAidedLearning.Utils.dreamerv2.models.rssm import RSSM
 from TrajectoryAidedLearning.Utils.dreamerv2.models.enc_dec import ObsDecoder, ObsEncoder
 from TrajectoryAidedLearning.Utils.dreamerv2.utils.buffer import TransitionBuffer
 
+
 class DreamerV2(object):
-    def __init__(self, state_dim, action_dim, name, max_action=1, window_in=1, window_out=1, multiagent=True):
+    def __init__(self, state_dim, action_dim, name, max_action=1, window_in=1, window_out=1, multiagent=True, device=None):
         self.name = name
         self.state_dim = state_dim
         self.max_action = max_action
@@ -23,6 +24,8 @@ class DreamerV2(object):
         self.window_in = window_in
         self.window_out = window_out
         self.state_buff = None
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if device is None else device
+        print("self.device :", self.device)
 
         # Load HP for training
         config = MultiAgent() if multiagent else SingleAgent()
@@ -90,10 +93,10 @@ class DreamerV2(object):
 
         for i in range(self.collect_intervals):
             obs, actions, rewards, terms = self.buffer.sample()
-            obs = torch.tensor(obs, dtype=torch.float32).to('cpu')                         #t, t+seq_len 
-            actions = torch.tensor(actions, dtype=torch.float32).to('cpu')                 #t-1, t+seq_len-1
-            rewards = torch.tensor(rewards, dtype=torch.float32).to('cpu').unsqueeze(-1)   #t-1 to t+seq_len-1
-            nonterms = torch.tensor(1-terms, dtype=torch.float32).to('cpu').unsqueeze(-1)  #t-1 to t+seq_len-1
+            obs = torch.tensor(obs, dtype=torch.float32).to(self.device)                         #t, t+seq_len 
+            actions = torch.tensor(actions, dtype=torch.float32).to(self.device)                 #t-1, t+seq_len-1
+            rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device).unsqueeze(-1)   #t-1 to t+seq_len-1
+            nonterms = torch.tensor(1-terms, dtype=torch.float32).to(self.device).unsqueeze(-1)  #t-1 to t+seq_len-1
 
             model_loss, kl_loss, obs_loss, reward_loss, pcont_loss, prior_dist, post_dist, posterior = self.representation_loss(obs, actions, rewards, nonterms)
             
@@ -216,6 +219,7 @@ class DreamerV2(object):
         discount_arr = torch.cat([torch.ones_like(discount_arr[:1]), discount_arr[1:]])
         discount = torch.cumprod(discount_arr[:-1], 0)
         policy_entropy = policy_entropy[1:].unsqueeze(-1)
+        print("in _actor_loss) discount, objective, policy_entropy :", discount.shape, objective.shape, policy_entropy.shape)
         actor_loss = -torch.sum(torch.mean(discount * (objective + self.actor_entropy_scale * policy_entropy), dim=1)) 
         return actor_loss, discount, lambda_returns
 
@@ -309,17 +313,17 @@ class DreamerV2(object):
         modelstate_size = stoch_size + deter_size 
     
         self.buffer = TransitionBuffer(self.config.capacity, obs_shape, action_size, self.seq_len, self.batch_size, self.config.obs_dtype, self.config.action_dtype)
-        self.RSSM = RSSM(action_size, rssm_node_size, embedding_size, 'cpu', self.config.rssm_type, self.config.rssm_info)
-        self.ActionModel = DiscreteActionModel(action_size, deter_size, stoch_size, embedding_size, self.config.actor, self.config.expl)
-        self.RewardDecoder = DenseModel((1,), modelstate_size, self.config.reward)
-        self.ValueModel = DenseModel((1,), modelstate_size, self.config.critic)
-        self.TargetValueModel = DenseModel((1,), modelstate_size, self.config.critic)
+        self.RSSM = RSSM(action_size, rssm_node_size, embedding_size, self.device, self.config.rssm_type, self.config.rssm_info).to(self.device)
+        self.ActionModel = DiscreteActionModel(action_size, deter_size, stoch_size, embedding_size, self.config.actor, self.config.expl).to(self.device)
+        self.RewardDecoder = DenseModel((1,), modelstate_size, self.config.reward).to(self.device)
+        self.ValueModel = DenseModel((1,), modelstate_size, self.config.critic).to(self.device)
+        self.TargetValueModel = DenseModel((1,), modelstate_size, self.config.critic).to(self.device)
         self.TargetValueModel.load_state_dict(self.ValueModel.state_dict())
         
         if self.config.discount['use']:
             self.DiscountModel = DenseModel((1,), modelstate_size, self.config.discount)
-        self.ObsEncoder = ObsEncoder(obs_shape, embedding_size, self.config.obs_encoder)
-        self.ObsDecoder = ObsDecoder(obs_shape, modelstate_size, self.config.obs_decoder)
+        self.ObsEncoder = ObsEncoder(obs_shape, embedding_size, self.config.obs_encoder).to(self.device)
+        self.ObsDecoder = ObsDecoder(obs_shape, modelstate_size, self.config.obs_decoder).to(self.device)
 
         self._optim_initialize()
 
