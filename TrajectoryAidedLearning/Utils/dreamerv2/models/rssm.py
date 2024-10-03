@@ -87,8 +87,6 @@ class RSSM(nn.Module, RSSMUtils):
             next_rssm_states.append(rssm_state)
             action_entropy.append(action_dist.entropy())
             imag_log_probs.append(action_dist.log_prob(torch.round(action.detach())))
-            print("in rollout_imagination, actor(self.get_model_state(rssm_state)).detach().shape :", self.get_model_state(rssm_state).detach().shape)
-            print("in rollout_imagination, action_dist.entropy().shape :", action_dist.entropy().shape)
         
         
         next_rssm_states = self.rssm_stack_states(next_rssm_states, dim=0)

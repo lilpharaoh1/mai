@@ -219,7 +219,6 @@ class DreamerV2(object):
         discount_arr = torch.cat([torch.ones_like(discount_arr[:1]), discount_arr[1:]])
         discount = torch.cumprod(discount_arr[:-1], 0)
         policy_entropy = policy_entropy[1:].unsqueeze(-1)
-        print("in _actor_loss) discount, objective, policy_entropy :", discount.shape, objective.shape, policy_entropy.shape)
         actor_loss = -torch.sum(torch.mean(discount * (objective + self.actor_entropy_scale * policy_entropy), dim=1)) 
         return actor_loss, discount, lambda_returns
 
