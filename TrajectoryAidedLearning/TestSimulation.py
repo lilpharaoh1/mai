@@ -178,7 +178,7 @@ class TestSimulation():
         observations = []
         for agent_id in range(self.num_agents):
             observation = {}
-            observation['current_laptime'] = obs['lap_times'][0]
+            observation['current_laptime'] = obs['lap_times'][agent_id]
             observation['scan'] = obs['scans'][agent_id] #TODO: introduce slicing here
             
             if self.noise_rng:
@@ -194,6 +194,7 @@ class TestSimulation():
             observation['state'] = state
             observation['lap_done'] = False
             observation['colision_done'] = False
+            observation['position'] = 0
 
             observation['reward'] = 0.0
 
@@ -204,13 +205,16 @@ class TestSimulation():
                 observation['colision_done'] = True
 
             if self.std_track is not None:
-                if (self.std_track.check_done(agent_id, observation) and obs['lap_counts'][agent_id] == 0) \
+                self.std_track.calculate_progress(agent_id, state[0:2])
+
+                if (self.std_track.check_done(agent_id) and obs['lap_counts'][agent_id] == 0) \
                                     or (not self.prev_obs is None and self.prev_obs[agent_id]['colision_done']):
                     observation['colision_done'] = True
 
+
                 if self.prev_obs is None: observation['progress'] = 0
                 elif self.prev_obs[agent_id]['lap_done'] == True: observation['progress'] = 0
-                else: observation['progress'] = max(self.std_track.calculate_progress_percent(state[0:2]), self.prev_obs[agent_id]['progress'])
+                else: observation['progress'] = max(self.std_track.calculate_progress_percent(agent_id), self.prev_obs[agent_id]['progress'])
                 # self.racing_race_track.plot_vehicle(state[0:2], state[2])
                 # taking the max progress
                 
@@ -228,7 +232,19 @@ class TestSimulation():
 
             # Append agent_observation to total observations
             observations.append(observation)
+        
+        # Set the position values for each agent
+        observations = self.score_positions(observations)
 
+        return observations
+
+    def score_positions(self, observations):
+        scores = self.std_track.s
+        sorted_scores = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+
+        for rank, agent_id in enumerate(sorted_scores):
+            observations[agent_id]['position'] = rank + 1
+        
         return observations
 
     def calc_offsets(self, num_adv):
@@ -261,7 +277,8 @@ class TestSimulation():
 
         self.prev_obs = None
         if self.std_track is not None:
-            self.std_track.max_distance = np.zeros((self.num_agents))
+            self.std_track.max_distance = np.zeros((self.num_agents)) - 999.9
+            self.std_track.s = np.zeros((self.num_agents)) - 999.9
 
         observation = self.build_observation(obs, done)
 

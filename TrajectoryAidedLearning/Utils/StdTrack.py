@@ -11,7 +11,8 @@ class StdTrack:
         self.total_s = None
         self.num_agents = num_agents
 
-        self.max_distance = np.zeros((num_agents))
+        self.max_distance = np.zeros((num_agents)) - 999.9
+        self.s = np.zeros((num_agents)) - 999.9
         self.distance_allowance = 1
 
         self.load_centerline()
@@ -54,18 +55,20 @@ class StdTrack:
         plt.gca().set_aspect('equal', adjustable='box')
         plt.show()
 
-    def calculate_progress(self, point):
+    def calculate_progress(self, agent_id, point):
         idx, dists = self.get_trackline_segment(point)
 
         x, h = self.interp_pts(idx, dists)
 
-        s = self.ss[idx] + x
+        if self.s[agent_id] < 0.0:
+            prop_dist = self.ss[idx] + x
+            self.s[agent_id] = prop_dist - self.total_s if prop_dist > 50.0 else prop_dist
+            self.max_distance[agent_id] = self.s[agent_id]
+        else:
+            self.s[agent_id] = self.ss[idx] + x
 
-        return s
-
-    def calculate_progress_percent(self, point):
-        s = self.calculate_progress(point)
-        return s/self.total_s
+    def calculate_progress_percent(self, agent_id):
+        return self.s[agent_id]/self.total_s
 
     def interp_pts(self, idx, dists):
         """
@@ -148,14 +151,11 @@ class StdTrack:
 
         plt.pause(0.0001)
 
-    def check_done(self, agent_id, observation, max_distance=None):
-        position = observation['state'][0:2]
-        s = self.calculate_progress(position)
-
-        if s <= (self.max_distance[agent_id] - self.distance_allowance) and self.max_distance[agent_id] < 0.8*self.total_s and s > 0.1:
+    def check_done(self, agent_id, max_distance=None):
+        if self.s[agent_id] <= (self.max_distance[agent_id] - self.distance_allowance) and self.max_distance[agent_id] < 0.8*self.total_s and self.s[agent_id] > 0.1:
             # check if I went backwards, unless the max distance is almost finished and that it isn't starting
             return True # made negative progress
-        self.max_distance[agent_id] = max(self.max_distance[agent_id], s)
+        self.max_distance[agent_id] = max(self.max_distance[agent_id], self.s[agent_id])
 
         return False
 
