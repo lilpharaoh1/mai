@@ -87,7 +87,6 @@ class TrainSimulation(TestSimulation):
             self.target_planner = select_agent(run, self.conf, run.architecture)
             self.adv_planners = [select_agent(run, self.conf, architecture) for architecture in run.adversaries] 
 
-
             self.completed_laps = 0
 
             self.run_training()
@@ -129,14 +128,18 @@ class TrainSimulation(TestSimulation):
         for i in range(self.n_train_steps):
             self.prev_obs = observations # used for calculating reward, so only wanst target_obs
             target_action = self.target_planner.plan(observations[0])
+            # target_action = np.array([0.0, 1.5]) + np.random.normal(scale=np.array([0.025, 0.2]))
             if len(self.adv_planners) > 0:
                 adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
+                # adv_actions = np.array([np.array([0.0, 1.8]) + np.random.normal(scale=np.array([0.025, 0.2])) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
                 actions = np.concatenate((target_action.reshape(1, -1), adv_actions), axis=0)
             else:
                 actions = target_actions
             observations = self.run_step(actions)
             target_obs = observations[0]
 
+            # print("self.prev_obs[0]['position'] :", self.prev_obs[0]['position'])
+            self.target_planner.t_his.add_overtaking(self.prev_obs[0]['position'] - target_obs['position'])
 
             if lap_counter > 0: # don't train on first lap.
                 self.target_planner.agent.train()
@@ -151,7 +154,7 @@ class TrainSimulation(TestSimulation):
 
                     self.completed_laps += 1
 
-                elif target_obs['colision_done'] or self.std_track.check_done(target_obs):
+                elif target_obs['colision_done'] or self.std_track.check_done(0): # target agent_id = 0
 
                     if VERBOSE: print(f"{i}::Crashed -> FinalR: {target_obs['reward']:.2f} -> LapTime {target_obs['current_laptime']:.2f} -> TotalReward: {self.target_planner.t_his.rewards[self.target_planner.t_his.ptr-1]:.2f} -> Progress: {target_obs['progress']:.2f}")
                     crash_counter += 1

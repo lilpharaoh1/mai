@@ -35,13 +35,24 @@ class TrainHistory():
         self.lengths = np.zeros(SIZE)
         self.rewards = np.zeros(SIZE) 
         self.progresses = np.zeros(SIZE) 
+        self.pos_overtaking = np.zeros(SIZE) 
+        self.neg_overtaking = np.zeros(SIZE) 
+        self.overtaking = np.zeros(SIZE) 
         self.laptimes = np.zeros(SIZE) 
         self.t_counter = 0 # total steps
         
         # espisode data
         self.ep_counter = 0 # ep steps
         self.ep_reward = 0
+        self.ep_pos_overtaking = 0
+        self.ep_neg_overtaking = 0
 
+    def add_overtaking(self, new_o):
+        if new_o > 0:
+            self.ep_pos_overtaking += new_o
+        elif new_o < 0:
+            self.ep_neg_overtaking += new_o
+    
     def add_step_data(self, new_r):
         self.ep_reward += new_r
         self.ep_counter += 1
@@ -52,6 +63,9 @@ class TrainHistory():
         self.lengths[self.ptr] = self.ep_counter
         self.rewards[self.ptr] = self.ep_reward
         self.progresses[self.ptr] = progress
+        self.pos_overtaking[self.ptr] = self.ep_pos_overtaking
+        self.neg_overtaking[self.ptr] = self.ep_neg_overtaking
+        self.overtaking[self.ptr] = self.ep_pos_overtaking + self.ep_neg_overtaking
         self.ptr += 1
 
         if show_reward:
@@ -66,6 +80,8 @@ class TrainHistory():
         self.ep_counter = 0
         self.ep_reward = 0
         self.ep_rewards = []
+        self.ep_pos_overtaking = 0
+        self.ep_neg_overtaking = 0
 
     def print_update(self, plot_reward=True):
         if self.ptr < 10:
@@ -83,7 +99,7 @@ class TrainHistory():
         data = []
         ptr = self.ptr  #exclude the last entry
         for i in range(ptr): 
-            data.append([i, self.rewards[i], self.lengths[i], self.progresses[i], self.laptimes[i]])
+            data.append([i, self.rewards[i], self.lengths[i], self.progresses[i], self.overtaking[i], self.laptimes[i]])
         save_csv_array(data, self.path + "/training_data_episodes.csv")
 
         plot_data(self.rewards[0:ptr], figure_n=2)
@@ -104,20 +120,31 @@ class TrainHistory():
         plt.grid()
         plt.savefig(self.path + "/training_rewards_steps.png")
 
-        # plt.figure(4)
-        # plt.clf()
-        # plt.plot(t_steps, self.progresses[0:self.ptr], '.', color='darkblue', markersize=4)
-        # plt.plot(t_steps, true_moving_average(self.progresses[0:self.ptr], 20), linewidth='4', color='r')
+        plt.figure(4)
+        plt.clf()
+        plt.plot(t_steps, self.progresses[0:self.ptr], '.', color='darkblue', markersize=4)
+        plt.plot(t_steps, true_moving_average(self.progresses[0:self.ptr], 20), linewidth='4', color='r')
 
-        # plt.xlabel("Training Steps (x100)")
-        # plt.ylabel("Progress")
+        plt.xlabel("Training Steps (x100)")
+        plt.ylabel("Progress")
 
-        # plt.tight_layout()
-        # plt.grid()
-        # plt.savefig(self.path + "/training_progress_steps.png")
+        plt.tight_layout()
+        plt.grid()
+        plt.savefig(self.path + "/training_progress_steps.png")
+
+        plt.figure(5)
+        plt.clf()
+        plt.plot(t_steps, self.overtaking[0:self.ptr], '.', color='darkblue', markersize=4)
+        plt.plot(t_steps, true_moving_average(self.overtaking[0:self.ptr], 20), linewidth='4', color='r')
+
+        plt.xlabel("Training Steps (x100)")
+        plt.ylabel("Overtaking per Episode")
+
+        plt.tight_layout()
+        plt.grid()
+        plt.savefig(self.path + "/training_overtaking_steps.png")
 
         # plt.close()
-
 
 
 class VehicleStateHistory:
