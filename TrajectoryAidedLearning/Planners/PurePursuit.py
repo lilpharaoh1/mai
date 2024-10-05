@@ -288,7 +288,7 @@ def get_actuation(pose_theta, lookahead_point, position, lookahead_distance, whe
 
 
 class PurePursuit:
-    def __init__(self, conf, run, init=True):
+    def __init__(self, run, conf, init=True):
         self.name = run.run_name
         path = os.getcwd() + f"/Data/Vehicles/" + run.path  + self.name
         if init: 
@@ -300,10 +300,10 @@ class PurePursuit:
         self.conf = conf
         self.run = run
 
-        self.raceline = run.raceline
-        self.speed_mode = run.pp_speed_mode
+        self.raceline = True # run.raceline
+        self.speed_mode = 'raceline'# run.pp_speed_mode
         self.max_speed = run.max_speed
-        self.trajectory = Trajectory(run.map_name, run.raceline)
+        self.trajectory = Trajectory(run.map_name, self.raceline)
 
         self.lookahead = conf.lookahead 
         self.v_min_plan = conf.v_min_plan
