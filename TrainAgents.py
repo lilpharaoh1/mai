@@ -106,7 +106,7 @@ class TrainSimulation(TestSimulation):
             run_dict = vars(run)
             run_dict.update(eval_dict)
 
-            save_conf_dict(run_dict)
+            save_conf_dict(run_dict, "RunConfig")
 
             conf = vars(self.conf)
             conf['path'] = run.path
@@ -127,14 +127,16 @@ class TrainSimulation(TestSimulation):
 
         for i in range(self.n_train_steps):
             self.prev_obs = observations # used for calculating reward, so only wanst target_obs
-            target_action = self.target_planner.plan(observations[0])
-            # target_action = np.array([0.0, 1.5]) + np.random.normal(scale=np.array([0.025, 0.2]))
+            target_action = self.target_planner.plan(target_obs)
+            # target_action = np.array([0.0, 1.8]) + np.random.normal(scale=np.array([0.025, 0.2]))
+            # target_action = np.array([0.0, 0.0])
             if len(self.adv_planners) > 0:
                 adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
                 # adv_actions = np.array([np.array([0.0, 1.8]) + np.random.normal(scale=np.array([0.025, 0.2])) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
+                # adv_actions = np.array([np.array([0.0, 0.0]) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
                 actions = np.concatenate((target_action.reshape(1, -1), adv_actions), axis=0)
             else:
-                actions = target_actions
+                actions = target_action.reshape(1, -1)
             observations = self.run_step(actions)
             target_obs = observations[0]
 

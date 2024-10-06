@@ -14,8 +14,8 @@ import time
 
 # settings
 SHOW_TRAIN = False
-SHOW_TEST = False
-# SHOW_TEST = True
+# SHOW_TEST = False
+SHOW_TEST = True
 VERBOSE = True
 LOGGING = True
 GRID_X_COEFF = 2.0
@@ -107,7 +107,7 @@ class TestSimulation():
                     adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
                     actions = np.concatenate((target_action.reshape(1, -1), adv_actions), axis=0)
                 else:
-                    actions = target_actions
+                    actions = target_action.reshape(1, -1)
                 observations = self.run_step(actions)
                 target_obs = observations[0]
 

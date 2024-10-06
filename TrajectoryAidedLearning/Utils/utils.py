@@ -115,7 +115,7 @@ def setup_run_list(run_file):
 
             assert run['target_position'] > 0 and run['target_position'] <= run['num_agents'], "Invalid target_position in runfile"
             # only have to add what isn't already there
-            adversaries = [adv["architecture"] if isinstance(adv, dict) else adv for adv in run["adversaries"]]
+            adversaries = [adv["architecture"] if isinstance(adv, dict) else adv for adv in run["adversaries"]] if not run["adversaries"] is None else []
             run["adversaries"] = adversaries
             set_n = run['set_n']
             max_speed = run['max_speed']
