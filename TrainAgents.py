@@ -87,6 +87,8 @@ class TrainSimulation(TestSimulation):
             self.target_planner = select_agent(run, self.conf, run.architecture)
             self.adv_planners = [select_agent(run, self.conf, architecture) for architecture in run.adversaries] 
 
+            self.vehicle_state_history = VehicleStateHistory(run, "Training/")
+
             self.completed_laps = 0
 
             self.run_training()

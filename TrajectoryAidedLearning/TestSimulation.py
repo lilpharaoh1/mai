@@ -126,6 +126,8 @@ class TestSimulation():
                 if VERBOSE: print(f"Lap {i} LapTimeExceeded in time: {target_obs['current_laptime']}")
 
             if self.vehicle_state_history: self.vehicle_state_history.save_history(i, test_map=self.map_name)
+            # if self.vehicle_state_history: self.vehicle_state_history.save_history(f"test_{i}", test_map=self.map_name)
+
 
         print(f"Tests are finished in: {time.time() - start_time}")
 
