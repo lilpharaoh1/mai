@@ -101,8 +101,8 @@ class TestSimulation():
             observations = self.reset_simulation()
             target_obs = observations[0]
 
-
             while not target_obs['colision_done'] and not target_obs['lap_done'] and not target_obs['current_laptime'] > self.conf.max_laptime:
+                self.prev_obs = observations
                 target_action = self.target_planner.plan(observations[0])
                 if len(self.adv_planners) > 0:
                     adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
@@ -235,6 +235,7 @@ class TestSimulation():
 
             if self.vehicle_state_history:
                 self.vehicle_state_history[agent_id].add_state(obs['full_states'][agent_id])
+                self.vehicle_state_history[agent_id].add_progress(observation['progress'])
 
             # Append agent_observation to total observations
             observations.append(observation)

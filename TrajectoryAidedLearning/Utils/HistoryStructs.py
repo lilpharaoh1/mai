@@ -159,6 +159,7 @@ class VehicleStateHistory:
         self.path = "Data/Vehicles/" + run.path + run.run_name + "/" + folder + "/"
         self.states = []
         self.actions = []
+        self.progresses = []
     
 
     def add_state(self, state):
@@ -166,13 +167,17 @@ class VehicleStateHistory:
     
     def add_action(self, action):
         self.actions.append(action)
+
+    def add_progress(self, progress):
+        self.progresses.append(progress)
     
     def save_history(self, lap_n=0, test_map=None):
         states = np.array(self.states)
         self.actions.append(np.array([0, 0])) # last action to equal lengths
         actions = np.array(self.actions)
+        progresses = np.array(self.progresses).reshape(-1, 1)
 
-        lap_history = np.concatenate((states, actions), axis=1)
+        lap_history = np.concatenate((states, actions, progresses), axis=1)
 
         if test_map is None:
             np.save(self.path + f"Lap_{lap_n}_history_{self.vehicle_name}.npy", lap_history)
@@ -181,21 +186,7 @@ class VehicleStateHistory:
 
         self.states = []
         self.actions = []
-    
-    def save_history(self, lap_n=0, test_map=None):
-        states = np.array(self.states)
-        self.actions.append(np.array([0, 0])) # last action to equal lengths
-        actions = np.array(self.actions)
-
-        lap_history = np.concatenate((states, actions), axis=1)
-
-        if test_map is None:
-            np.save(self.path + f"Lap_{lap_n}_history_{self.vehicle_name}.npy", lap_history)
-        else:
-            np.save(self.path + f"Lap_{lap_n}_history_{self.vehicle_name}_{test_map}.npy", lap_history)
-
-        self.states = []
-        self.actions = []
+        self.progresses = []
 
 
 
