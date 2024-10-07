@@ -78,7 +78,8 @@ class TestSimulation():
             if run.test_mode == "Std": self.target_planner = planner
             else: raise AssertionError(f"Test mode {run.test_mode} not found")
 
-            self.vehicle_state_history = VehicleStateHistory(run, "Testing/")
+            self.vehicle_state_history = [VehicleStateHistory(run, f"Testing/agent_{agent_id}") for agent_id in range(run.num_agents)]
+
 
             self.n_test_laps = run.n_test_laps
             self.lap_times = []
@@ -125,8 +126,10 @@ class TestSimulation():
             if target_obs['current_laptime'] > self.conf.max_laptime:
                 if VERBOSE: print(f"Lap {i} LapTimeExceeded in time: {target_obs['current_laptime']}")
 
-            if self.vehicle_state_history: self.vehicle_state_history.save_history(i, test_map=self.map_name)
-            # if self.vehicle_state_history: self.vehicle_state_history.save_history(f"test_{i}", test_map=self.map_name)
+            if self.vehicle_state_history: 
+                for vsh in self.vehicle_state_history:
+                    vsh.save_history(i, test_map=self.map_name)
+                    # vsh.save_history(f"test_{i}", test_map=self.map_name)
 
 
         print(f"Tests are finished in: {time.time() - start_time}")
@@ -151,7 +154,8 @@ class TestSimulation():
     def run_step(self, actions):
         sim_steps = self.conf.sim_steps
         if self.vehicle_state_history: 
-            self.vehicle_state_history.add_action(actions[0])
+            for vsh, action in zip(self.vehicle_state_history, actions):
+                vsh.add_action(action)
         self.prev_action = actions[0]
 
         sim_steps, done = sim_steps, False
@@ -229,8 +233,8 @@ class TestSimulation():
                 reward_action = None if self.prev_action is None else self.prev_action[agent_id]
                 observation['reward'] = self.reward(observation, reward_obs, reward_action)
 
-            if self.vehicle_state_history and agent_id == 0:
-                self.vehicle_state_history.add_state(obs['full_states'][0])
+            if self.vehicle_state_history:
+                self.vehicle_state_history[agent_id].add_state(obs['full_states'][agent_id])
 
             # Append agent_observation to total observations
             observations.append(observation)

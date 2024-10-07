@@ -150,9 +150,13 @@ class TrainHistory():
 class VehicleStateHistory:
     def __init__(self, run, folder):
         self.vehicle_name = run.run_name
-        self.path = "Data/Vehicles/" + run.path + run.run_name + "/" + folder
-        if not os.path.exists(self.path):
-            os.mkdir(self.path)
+        tmp_path = "Data/Vehicles/" + run.path + run.run_name
+        indv_dirs = folder.split('/')
+        for indv_dir in indv_dirs:
+            tmp_path = tmp_path + "/" + indv_dir
+            if not os.path.exists(tmp_path):
+                os.mkdir(tmp_path)
+        self.path = "Data/Vehicles/" + run.path + run.run_name + "/" + folder + "/"
         self.states = []
         self.actions = []
     

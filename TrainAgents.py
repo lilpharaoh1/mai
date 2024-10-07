@@ -87,7 +87,7 @@ class TrainSimulation(TestSimulation):
             self.target_planner = select_agent(run, self.conf, run.architecture, init=True)
             self.adv_planners = [select_agent(run, self.conf, architecture, init=False) for architecture in run.adversaries] 
 
-            self.vehicle_state_history = VehicleStateHistory(run, "Training/")
+            self.vehicle_state_history = [VehicleStateHistory(run, f"Training/agent_{agent_id}") for agent_id in range(self.num_agents)]
 
             self.completed_laps = 0
 
@@ -97,7 +97,7 @@ class TrainSimulation(TestSimulation):
             self.target_planner = select_agent(run, self.conf, run.architecture, train=False, init=False)
             self.adv_planners = [select_agent(run, self.conf, architecture, train=False, init=False) for architecture in run.adversaries]
 
-            self.vehicle_state_history = VehicleStateHistory(run, "Testing/")
+            self.vehicle_state_history = [VehicleStateHistory(run, f"Testing/agent_{agent_id}") for agent_id in range(self.num_agents)]
 
             self.n_test_laps = run.n_test_laps
 
@@ -166,7 +166,9 @@ class TrainSimulation(TestSimulation):
                 else:
                     print(f"{i}::LapTime Exceeded -> FinalR: {target_obs['reward']:.2f} -> LapTime {target_obs['current_laptime']:.2f} -> TotalReward: {self.target_planner.t_his.rewards[self.target_planner.t_his.ptr-1]:.2f} -> Progress: {target_obs['progress']:.2f}")
 
-                if self.vehicle_state_history: self.vehicle_state_history.save_history(f"train_{lap_counter}", test_map=self.map_name)
+                if self.vehicle_state_history:
+                    for vsh in self.vehicle_state_history: 
+                        vsh.save_history(f"train_{lap_counter}", test_map=self.map_name)
                 lap_counter += 1
 
                 observations = self.reset_simulation()
