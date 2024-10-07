@@ -37,14 +37,14 @@ def select_reward_function(run, conf, std_track):
     return reward_function
 
 # TODO move to utils
-def select_agent(run, conf, architecture, train=True):
+def select_agent(run, conf, architecture, train=True, init=False):
     agent_type = architecture if architecture is not None else "TD3"
     if agent_type == "PP":
-        agent = PurePursuit(run, conf)
+        agent = PurePursuit(run, conf, init=init)
     elif agent_type == "TD3":
-        agent = TD3Trainer(run, conf) if train else TD3Tester(run, conf)
+        agent = TD3Trainer(run, conf, init=init) if train else TD3Tester(run, conf)
     elif agent_type == "SAC":
-        agent = SACTrainer(run, conf) if train else SACTester(run, conf)
+        agent = SACTrainer(run, conf, init=init) if train else SACTester(run, conf)
     elif agent_type == "DispExt":
         agent = DispExt(run, conf)
     else: raise Exception("Unknown agent type: " + agent_type)
@@ -84,8 +84,8 @@ class TrainSimulation(TestSimulation):
             self.std_track = StdTrack(run.map_name, num_agents=run.num_agents)
             self.reward = select_reward_function(run, self.conf, self.std_track)
 
-            self.target_planner = select_agent(run, self.conf, run.architecture)
-            self.adv_planners = [select_agent(run, self.conf, architecture) for architecture in run.adversaries] 
+            self.target_planner = select_agent(run, self.conf, run.architecture, init=True)
+            self.adv_planners = [select_agent(run, self.conf, architecture, init=False) for architecture in run.adversaries] 
 
             self.vehicle_state_history = VehicleStateHistory(run, "Training/")
 
@@ -94,8 +94,8 @@ class TrainSimulation(TestSimulation):
             self.run_training()
 
             #Test
-            self.target_planner = select_agent(run, self.conf, run.architecture, train=False)
-            self.adv_planners = [select_agent(run, self.conf, architecture, train=False) for architecture in run.adversaries]
+            self.target_planner = select_agent(run, self.conf, run.architecture, train=False, init=False)
+            self.adv_planners = [select_agent(run, self.conf, architecture, train=False, init=False) for architecture in run.adversaries]
 
             self.vehicle_state_history = VehicleStateHistory(run, "Testing/")
 
