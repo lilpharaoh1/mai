@@ -90,6 +90,7 @@ class TrainSimulation(TestSimulation):
             self.vehicle_state_history = [VehicleStateHistory(run, f"Training/agent_{agent_id}") for agent_id in range(self.num_agents)]
 
             self.completed_laps = 0
+            self.places = []
 
             self.run_training()
 
@@ -103,6 +104,7 @@ class TrainSimulation(TestSimulation):
 
             self.lap_times = []
             self.completed_laps = 0
+            self.places = []
 
             eval_dict = self.run_testing()
             run_dict = vars(run)

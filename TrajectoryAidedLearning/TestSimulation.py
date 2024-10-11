@@ -35,6 +35,7 @@ class TestSimulation():
         self.n_test_laps = None
         self.lap_times = None
         self.completed_laps = None
+        self.places = None
         self.prev_obs = None
         self.prev_action = None
 
@@ -83,6 +84,7 @@ class TestSimulation():
 
             self.n_test_laps = run.n_test_laps
             self.lap_times = []
+            self.places = []
             self.completed_laps = 0
 
             eval_dict = self.run_testing()
@@ -118,6 +120,7 @@ class TestSimulation():
             if target_obs['lap_done']:
                 if VERBOSE: print(f"Lap {i} Complete in time: {target_obs['current_laptime']}")
                 self.lap_times.append(target_obs['current_laptime'])
+                self.places.append(target_obs['position'])
                 self.completed_laps += 1
 
             if target_obs['colision_done']:
@@ -136,17 +139,25 @@ class TestSimulation():
 
         success_rate = (self.completed_laps / (self.n_test_laps) * 100)
         if len(self.lap_times) > 0:
-            avg_times, std_dev = np.mean(self.lap_times), np.std(self.lap_times)
+            avg_times, times_std_dev = np.mean(self.lap_times), np.std(self.lap_times)
         else:
-            avg_times, std_dev = 0, 0
+            avg_times, times_std_dev = 0, 0
+        if len(self.places) > 0:
+            avg_place, place_std_dev = np.mean(self.places), np.std(self.places)
+        else:
+            avg_place, place_std_dev = 0, 0
 
         print(f"Crashes: {self.n_test_laps - self.completed_laps} VS Completes {self.completed_laps} --> {success_rate:.2f} %")
-        print(f"Lap times Avg: {avg_times} --> Std: {std_dev}")
+        print(f"Lap times Avg: {avg_times} --> Std: {times_std_dev}")
+        print(f"Place Avg: {avg_place} --> Std: {place_std_dev}")
+
 
         eval_dict = {}
         eval_dict['success_rate'] = float(success_rate)
         eval_dict['avg_times'] = float(avg_times)
-        eval_dict['std_dev'] = float(std_dev)
+        eval_dict['times_std_dev'] = float(times_std_dev)
+        eval_dict['avg_place'] = float(avg_place)
+        eval_dict['place_std_dev'] = float(place_std_dev)
 
         return eval_dict
 
@@ -242,6 +253,10 @@ class TestSimulation():
         
         # Set the position values for each agent
         observations = self.score_positions(observations)
+
+        # if self.vehicle_state_history:
+            # for agent_id in range(self.num_agents):
+                # self.vehicle_state_history
 
         return observations
 

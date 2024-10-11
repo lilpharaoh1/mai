@@ -16,7 +16,7 @@ import argparse
 import glob
 from matplotlib.ticker import PercentFormatter
 from matplotlib.collections import LineCollection
-from matplotlib.patches import Rectangle, Arrow
+from matplotlib.patches import Rectangle, Arrow, Patch
 
 from TrajectoryAidedLearning.DataTools.MapData import MapData
 from TrajectoryAidedLearning.Utils.StdTrack import StdTrack 
@@ -27,6 +27,10 @@ from TrajectoryAidedLearning.DataTools.plotting_utils import *
 
 # SAVE_PDF = False
 SAVE_PDF = True
+
+# LEGEND = False
+LEGEND = True
+LEGEND_LOC = "lower right"
 
 colors = ['red', 'blue', 'green', 'purple']
 
@@ -109,10 +113,12 @@ class AnalyseTestLapData:
         lap_length = self.states.shape[1]
         window_start, window_end = int(lap_length * 0.0), int(lap_length * 1.0)
         window_sparsity = 3
+        legend_patches = []
         for agent_id in range(self.num_agents):
             points = self.states[agent_id, :, 0:2]
             angles = self.states[agent_id, :, 4]
             vs = self.states[agent_id, :, 3]
+            label = self.run_data[0].architecture if agent_id == 0 else self.run_data[int(self.path.split("_")[-1][:-1])].adversaries[agent_id - 1]
             
             self.map_data.plot_map_img()
 
@@ -142,7 +148,7 @@ class AnalyseTestLapData:
                     color=colors[agent_id], 
                     fill=False,
                     linewidth=0.6,
-                    alpha=0.85
+                    alpha=0.85,
                     )
                 arr = Arrow(
                     x, y,
@@ -156,7 +162,9 @@ class AnalyseTestLapData:
                 _ = plt.gca().add_patch(car)
                 _ = plt.gca().add_patch(arr)
 
-
+            if LEGEND:
+                legend_patches.append(Patch(color=colors[agent_id], label=label, fill=False, linewidth=3))
+                plt.gca().legend(handles=legend_patches, loc=LEGEND_LOC, fontsize=10)
             plt.gca().set_aspect('equal', adjustable='box')
 
         
@@ -174,9 +182,12 @@ class AnalyseTestLapData:
         std_img_saving(name)
 
 def set_limits(map_name):
-    plt.xlim(20, 1500)
-    plt.ylim(50, 520)
+    # # ESP Full
+    # plt.xlim(20, 1500)
+    # plt.ylim(50, 520)
     
+    plt.xlim(650, 1150)
+    plt.ylim(300, 520)
 
 def analyse_folder(run_file):    
     TestData = AnalyseTestLapData()
