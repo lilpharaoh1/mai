@@ -81,8 +81,8 @@ class AnalyseTestLapData:
         self.std_track = StdTrack(self.map_name)
         self.racing_track = RacingTrack(self.map_name)
 
-        if not os.path.exists(self.path + "TestingProgress/"): 
-            os.mkdir(self.path + "TestingProgress/")    
+        if not os.path.exists(self.path + "TestingProgressComp/"): 
+            os.mkdir(self.path + "TestingProgressComp/")    
         for self.lap_n in range(self.n_test_laps):
             if not self.load_lap_data(): break # no more laps
             print(f"Test Lap {self.lap_n}:")
@@ -106,7 +106,7 @@ class AnalyseTestLapData:
 
     
     def plot_progress(self): 
-        save_path  = self.path + "TestingProgress/"
+        save_path  = self.path + "TestingProgressComp/"
         
         plt.figure(1, figsize=(4.5, 2.3))
         agent_names = [f"{adv} (Adversary #{adv_idx + 1})" for adv_idx, adv in enumerate(self.run_data[0].adversaries)]
