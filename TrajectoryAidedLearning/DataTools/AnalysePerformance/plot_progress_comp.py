@@ -118,7 +118,6 @@ class AnalyseTestLapData:
 
         for agent_id in range(self.num_agents):
             progress = self.progresses[agent_id] - max_progress
-            print(f"agent_id = {agent_id}, progress = {progress}")
             plt.plot(xs, progress, '-', color=colors[agent_id], linewidth=1, label=agent_names[agent_id], alpha=0.85)
         
 
