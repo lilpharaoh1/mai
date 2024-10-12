@@ -86,9 +86,7 @@ class AnalyseTestLapData:
             os.mkdir(self.path + "TestingOvertaking/")    
         for self.lap_n in range(self.n_test_laps):
             if not self.load_lap_data(): break # no more laps
-            print(f"Test Lap {self.lap_n}:")
-            print("     self.states.shape : ", self.states.shape)
-            print("     self.actions.shape : ", self.actions.shape)
+            print(f"Processing test lap {self.lap_n}...")
             self.plot_velocity_heat_map()
 
 
@@ -118,8 +116,10 @@ class AnalyseTestLapData:
             points = self.states[agent_id, :, 0:2]
             angles = self.states[agent_id, :, 4]
             vs = self.states[agent_id, :, 3]
-            label = self.run_data[0].architecture if agent_id == 0 else self.run_data[int(self.path.split("_")[-1][:-1])].adversaries[agent_id - 1]
-            
+            # label = self.run_data[0].architecture if agent_id == 0 else self.run_data[int(self.path.split("_")[-1][:-1])].adversaries[agent_id - 1]
+            agent_names = [f"{adv} (Adversary #{adv_idx + 1})" for adv_idx, adv in enumerate(self.run_data[0].adversaries)]
+            agent_names.insert(0, f"{self.run_data[0].architecture} (Target)") 
+
             self.map_data.plot_map_img()
 
             xs, ys = self.map_data.pts2rc(points)
@@ -163,7 +163,7 @@ class AnalyseTestLapData:
                 _ = plt.gca().add_patch(arr)
 
             if LEGEND:
-                legend_patches.append(Patch(color=colors[agent_id], label=label, fill=False, linewidth=3))
+                legend_patches.append(Patch(color=colors[agent_id], label=agent_names[agent_id], fill=False, linewidth=3))
                 plt.gca().legend(handles=legend_patches, loc=LEGEND_LOC, fontsize=10)
             plt.gca().set_aspect('equal', adjustable='box')
 
@@ -182,12 +182,9 @@ class AnalyseTestLapData:
         std_img_saving(name)
 
 def set_limits(map_name):
-    # # ESP Full
-    # plt.xlim(20, 1500)
-    # plt.ylim(50, 520)
-    
-    plt.xlim(650, 1150)
-    plt.ylim(300, 520)
+    # ESP Full
+    plt.xlim(20, 1500)
+    plt.ylim(50, 520)
 
 def analyse_folder(run_file):    
     TestData = AnalyseTestLapData()

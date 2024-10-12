@@ -76,8 +76,8 @@ class TestSimulation():
                 planner = AgentTester(run, self.conf)
             else: raise AssertionError(f"Planner {run.planner} not found")
 
-            if run.test_mode == "Std": self.target_planner = planner
-            else: raise AssertionError(f"Test mode {run.test_mode} not found")
+            if run.map_mode == "Std": self.target_planner = planner
+            else: raise AssertionError(f"Test mode {run.map_mode} not found")
 
             self.vehicle_state_history = [VehicleStateHistory(run, f"Testing/agent_{agent_id}") for agent_id in range(run.num_agents)]
 

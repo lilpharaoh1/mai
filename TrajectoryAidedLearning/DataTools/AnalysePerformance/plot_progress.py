@@ -85,9 +85,7 @@ class AnalyseTestLapData:
             os.mkdir(self.path + "TestingProgress/")    
         for self.lap_n in range(self.n_test_laps):
             if not self.load_lap_data(): break # no more laps
-            print(f"Test Lap {self.lap_n}:")
-            print("     self.states.shape : ", self.states.shape)
-            print("     self.actions.shape : ", self.actions.shape)
+            print(f"Processing test lap {self.lap_n}...")
             self.plot_progress()
 
 

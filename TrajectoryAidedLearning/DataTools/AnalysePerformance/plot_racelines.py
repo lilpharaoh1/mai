@@ -88,9 +88,7 @@ class AnalyseTestLapData:
             os.mkdir(self.path + "TestingVelocities/")    
         for self.lap_n in range(self.n_test_laps):
             if not self.load_lap_data(): break # no more laps
-            print(f"Test Lap {self.lap_n}:")
-            print("     self.states.shape : ", self.states.shape)
-            print("     self.actions.shape : ", self.actions.shape)
+            print(f"Processing test lap {self.lap_n}...")
             self.plot_velocity_heat_map()
 
 
@@ -112,6 +110,7 @@ class AnalyseTestLapData:
         
         plt.figure(1)
         plt.clf()
+
         for agent_id in range(self.num_agents):
             points = self.states[agent_id, :, 0:2]
             vs = self.states[agent_id, :, 3]

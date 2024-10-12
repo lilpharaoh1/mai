@@ -115,17 +115,17 @@ def setup_run_list(run_file):
 
             assert run['target_position'] > 0 and run['target_position'] <= run['num_agents'], "Invalid target_position in runfile"
             # only have to add what isn't already there
-            adversaries = [adv["architecture"] if isinstance(adv, dict) else adv for adv in run["adversaries"]] if not run["adversaries"] is None else []
+            adversaries = [adv for adv in run["adversaries"]] if not run["adversaries"] is None else []
             run["adversaries"] = adversaries
             set_n = run['set_n']
             max_speed = run['max_speed']
             run["n"] = rep
             if run['architecture'] == "PP":
-                run['run_name'] = f"{run['architecture']}_PP_{run['test_mode']}_PP_{run['map_name']}_{max_speed}_{set_n}_{rep}"
+                run['run_name'] = f"{run['architecture']}_PP_{run['map_mode']}_PP_{run['map_name']}_{max_speed}_{set_n}_{rep}"
             elif run['architecture'] == "DispExt":
-                run['run_name'] = f"{run['architecture']}_DispExt_{run['test_mode']}_DispExt_{run['map_name']}_{max_speed}_{set_n}_{rep}"
+                run['run_name'] = f"{run['architecture']}_DispExt_{run['map_mode']}_DispExt_{run['map_name']}_{max_speed}_{set_n}_{rep}"
             else:
-                run['run_name'] = f"{run['architecture']}_{run['train_mode']}_{run['test_mode']}_{run['reward']}_{run['map_name']}_{max_speed}_{set_n}_{rep}"
+                run['run_name'] = f"{run['architecture']}_{str_adv(adversaries)}_{run['map_mode']}_{run['reward']}_{run['map_name']}_{max_speed}_{set_n}_{rep}"
             run['path'] = f"{run['test_name']}/"
 
             run_list.append(Namespace(**run))
@@ -133,6 +133,15 @@ def setup_run_list(run_file):
     init_reward_struct("Data/Vehicles/" + run_list[0].path)
 
     return run_list
+
+def str_adv(adversaries):
+    if len(adversaries) == 0:
+        return "None"
+    out = ""
+    for adv in adversaries:
+        out += adv
+    return out
+
 
 @njit(cache=True)
 def calculate_speed(delta, f_s=0.8, max_v=7):
