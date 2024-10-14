@@ -1,44 +1,41 @@
 
-test_name: "Cth_speeds"
+test_name: "dev"
 
-num_agents: 2
+num_agents: 3
 target_position: 2
 
 architecture: "TD3"
-window_in: 5
-window_out: 5
+window_in: 2
+window_out: 1
 
-train_mode: "Std"
-test_mode: "Std"
+# train_mode: "Std"
+# test_mode: "Std"
+map_mode: "Std"
 
-n: 4
+n: 1
 set_n: 1
 
 random_seed: 10000
 
-n_train_steps: 100000
+# n_train_steps: 100000
+n_train_steps: 10000
+# n_train_steps: 700
 n_test_laps: 20
 # n_test_laps: 50
 
 map_name: "f1_esp"
 reward: "Cth"
 
-adversaries:
-  - architecture: DispExt
-  # - architecture: DispExt
-  # - architecture: DispExt
-  # - architecture: DispExt
-  # - architecture: DispExt
-  # - architecture: DispExt
-  # - architecture: DispExt
- 
+max_speed: 5
 
 runs:
-  # - max_speed: 4
-  # - max_speed: 5
-  # - max_speed: 6
-  - max_speed: 7
-  - max_speed: 8
+  - adversaries: ['PP', 'PP']
+  - adversaries: ['DispExt', 'DispExt']
+
+
+# runs:
+  # - max_speed: 7
+  # - max_speed: 8
 
 
 

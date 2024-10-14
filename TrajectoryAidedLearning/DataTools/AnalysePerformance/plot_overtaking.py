@@ -32,6 +32,16 @@ SAVE_PDF = True
 LEGEND = True
 LEGEND_LOC = "lower right"
 
+ARCH_MAP = {
+    0: None,
+    1: "PP",
+    2: "DispExt",
+    3: "TD3",
+    4: "SAC",
+    5: "DreamerV2",
+    6: "Director"
+}
+
 colors = ['red', 'blue', 'green', 'purple']
 
 
@@ -116,9 +126,10 @@ class AnalyseTestLapData:
             points = self.states[agent_id, :, 0:2]
             angles = self.states[agent_id, :, 4]
             vs = self.states[agent_id, :, 3]
-            # label = self.run_data[0].architecture if agent_id == 0 else self.run_data[int(self.path.split("_")[-1][:-1])].adversaries[agent_id - 1]
+            target = self.path[:-1].split('/')[-1].split('_')[0]
+            advs = [ARCH_MAP[int(str_adv)] for str_adv in self.path[:-1].split("/")[-1].split('_')[1]]  
             agent_names = [f"{adv} (Adversary #{adv_idx + 1})" for adv_idx, adv in enumerate(self.run_data[0].adversaries)]
-            agent_names.insert(0, f"{self.run_data[0].architecture} (Target)") 
+            agent_names.insert(0, f"{target} (Target)") 
 
             self.map_data.plot_map_img()
 
@@ -182,9 +193,15 @@ class AnalyseTestLapData:
         std_img_saving(name)
 
 def set_limits(map_name):
-    # ESP Full
-    plt.xlim(20, 1500)
-    plt.ylim(50, 520)
+    # # ESP Full
+    # plt.xlim(20, 1500)
+    # plt.ylim(50, 520)
+
+    # ESP Start
+    plt.xlim(650, 1200)
+    plt.ylim(300, 520)
+
+
 
 def analyse_folder(run_file):    
     TestData = AnalyseTestLapData()

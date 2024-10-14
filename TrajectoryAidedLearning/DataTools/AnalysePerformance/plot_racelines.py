@@ -149,9 +149,9 @@ class AnalyseTestLapData:
         highlight1_limits(self.map_name)
         std_img_saving(name)
 
-        name = save_path + f"{self.vehicle_name}_velocity_map_{self.lap_n}_highlight2"
-        highlight2_limits(self.map_name)
-        std_img_saving(name)
+        # name = save_path + f"{self.vehicle_name}_velocity_map_{self.lap_n}_highlight2"
+        # highlight2_limits(self.map_name)
+        # std_img_saving(name)
 
 def whole_limits(map_name):
     match map_name:
@@ -171,8 +171,9 @@ def whole_limits(map_name):
 def highlight1_limits(map_name):
     match map_name:
         case "f1_esp":
-            plt.xlim(20, 620)
-            plt.ylim(50, 520)
+            # ESP Start
+            plt.xlim(650, 1200)
+            plt.ylim(300, 520)
         case "f1_aut":
             plt.xlim(20, 1500)
             plt.ylim(50, 520)

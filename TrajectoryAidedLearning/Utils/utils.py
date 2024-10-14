@@ -7,6 +7,15 @@ import numpy as np
 from numba import njit
 from matplotlib import pyplot as plt
 
+ARCH_MAP = {
+    "PP": 1,
+    "DispExt": 2,
+    "TD3": 3,
+    "SAC": 4,
+    "DreamerV2": 5,
+    "Director": 6
+}
+
 def save_conf_dict(dictionary, save_name=None):
     if save_name is None:
         save_name  = dictionary["run_name"]
@@ -136,10 +145,10 @@ def setup_run_list(run_file):
 
 def str_adv(adversaries):
     if len(adversaries) == 0:
-        return "None"
+        return "0"
     out = ""
     for adv in adversaries:
-        out += adv
+        out += str(ARCH_MAP[adv])
     return out
 
 

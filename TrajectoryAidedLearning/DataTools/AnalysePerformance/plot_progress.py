@@ -16,7 +16,7 @@ import argparse
 import glob
 from matplotlib.ticker import PercentFormatter
 from matplotlib.collections import LineCollection
-from matplotlib.patches import Rectangle, Arrow
+from matplotlib.patches import Rectangle, Arrow, Patch
 
 from TrajectoryAidedLearning.DataTools.MapData import MapData
 from TrajectoryAidedLearning.Utils.StdTrack import StdTrack 
@@ -27,6 +27,20 @@ from TrajectoryAidedLearning.DataTools.plotting_utils import *
 
 # SAVE_PDF = False
 SAVE_PDF = True
+
+# LEGEND = False
+LEGEND = True
+LEGEND_LOC = "lower right"
+
+ARCH_MAP = {
+    0: None,
+    1: "PP",
+    2: "DispExt",
+    3: "TD3",
+    4: "SAC",
+    5: "DreamerV2",
+    6: "Director"
+}
 
 colors = ['red', 'blue', 'green', 'purple']
 DT = 0.01 # defined by self.timestep in f110_env
@@ -65,6 +79,7 @@ class AnalyseTestLapData:
         print(f"{len(vehicle_folders)} folders found")
 
         set = 1
+        assert len(vehicle_folders) == len(self.run_data)
         for j, folder in enumerate(vehicle_folders):
             print(f"Vehicle folder being opened: {folder}")
             self.process_folder(folder)
@@ -107,25 +122,38 @@ class AnalyseTestLapData:
         save_path  = self.path + "TestingProgress/"
         
         plt.figure(1, figsize=(4.5, 2.3))
-        agent_names = [f"{adv} (Adversary #{adv_idx + 1})" for adv_idx, adv in enumerate(self.run_data[0].adversaries)]
-        agent_names.insert(0, f"{self.run_data[0].architecture} (Target)") 
+        plt.clf()
+        target = self.path[:-1].split('/')[-1].split('_')[0]
+        advs = [ARCH_MAP[int(str_adv)] for str_adv in self.path[:-1].split("/")[-1].split('_')[1]]
+        agent_names = [f"{adv} (Adversary #{adv_idx + 1})" for adv_idx, adv in enumerate(advs)]
+        agent_names.insert(0, f"{target} (Target)") 
 
         total_steps = self.progresses.shape[1]
         xs = np.linspace(0, total_steps * DT * self.sim_steps, total_steps)
+        legend_patches = [] 
+
         for agent_id in range(self.num_agents):
             progress = self.progresses[agent_id]
-            plt.plot(xs, progress, '-', color=colors[agent_id], linewidth=1, label=agent_names[agent_id], alpha=0.85)
+            plt.plot(xs, progress, '-', color=colors[agent_id], linewidth=1, alpha=0.85)
         
+
+            if LEGEND:
+                legend_patches.append(Patch(color=colors[agent_id], label=agent_names[agent_id], fill=False, linewidth=3))
 
         plt.xlabel("Time (s)")
         plt.ylabel("Track Progress %")
-        plt.ylim(0.0, 1.0)
         plt.xlim(0.0, total_steps * DT * self.sim_steps)
-        plt.legend(loc='center', bbox_to_anchor=(0.5, -0.52), ncol=3)
+        if LEGEND:
+            plt.legend(handles=legend_patches, loc=LEGEND_LOC, fontsize=10)
+        # plt.legend(loc='center', bbox_to_anchor=(0.5, -0.52), ncol=3)
         plt.tight_layout()
         plt.grid()
 
-        name = save_path + f"{self.vehicle_name}_velocity_map_{self.lap_n}_progress"
+        name = save_path + f"{self.vehicle_name}_progress_{self.lap_n}_relay"
+        std_img_saving(name)
+
+        plt.ylim(0.0, 1.0)
+        name = save_path + f"{self.vehicle_name}_progress_{self.lap_n}_fully"
         std_img_saving(name)
 
 def set_limits(map_name):
