@@ -1,4 +1,4 @@
-name: tal_gym
+name: mai-gym
 channels:
   - defaults
 dependencies:
