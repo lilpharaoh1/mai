@@ -17,8 +17,8 @@ from TrajectoryAidedLearning.Utils.HistoryStructs import VehicleStateHistory
 from TrajectoryAidedLearning.TestSimulation import TestSimulation
 
 # settings
-# SHOW_TRAIN = False
-SHOW_TRAIN = True
+SHOW_TRAIN = False
+# SHOW_TRAIN = True
 VERBOSE = True
 
 NON_TRAINABLE = []
@@ -91,6 +91,7 @@ class TrainSimulation(TestSimulation):
 
             self.completed_laps = 0
             self.places = []
+            self.progresses = []
 
             self.run_training()
 
@@ -105,6 +106,7 @@ class TrainSimulation(TestSimulation):
             self.lap_times = []
             self.completed_laps = 0
             self.places = []
+            self.progresses = []
 
             eval_dict = self.run_testing()
             run_dict = vars(run)

@@ -14,8 +14,8 @@ import time
 
 # settings
 SHOW_TRAIN = False
-# SHOW_TEST = False
-SHOW_TEST = True
+SHOW_TEST = False
+# SHOW_TEST = True
 VERBOSE = True
 LOGGING = True
 GRID_X_COEFF = 2.0
@@ -36,6 +36,7 @@ class TestSimulation():
         self.lap_times = None
         self.completed_laps = None
         self.places = None
+        self.progresses = None
         self.prev_obs = None
         self.prev_action = None
 
@@ -85,6 +86,7 @@ class TestSimulation():
             self.n_test_laps = run.n_test_laps
             self.lap_times = []
             self.places = []
+            self.progresses = []
             self.completed_laps = 0
 
             eval_dict = self.run_testing()
@@ -117,10 +119,12 @@ class TestSimulation():
                 if SHOW_TEST: self.env.render('human_fast')
 
             self.target_planner.lap_complete()
+            self.progresses.append(target_obs['progress'])
             if target_obs['lap_done']:
                 if VERBOSE: print(f"Lap {i} Complete in time: {target_obs['current_laptime']}")
                 self.lap_times.append(target_obs['current_laptime'])
                 self.places.append(target_obs['position'])
+
                 self.completed_laps += 1
 
             if target_obs['colision_done']:
@@ -142,14 +146,21 @@ class TestSimulation():
             avg_times, times_std_dev = np.mean(self.lap_times), np.std(self.lap_times)
         else:
             avg_times, times_std_dev = 0, 0
+
         if len(self.places) > 0:
             avg_place, place_std_dev = np.mean(self.places), np.std(self.places)
         else:
             avg_place, place_std_dev = 0, 0
 
+        if len(self.progresses) > 0:
+            avg_progress, progress_std_dev = np.mean(self.progresses), np.std(self.progresses)
+        else:
+            avg_progress, progress_std_dev = 0, 0
+
         print(f"Crashes: {self.n_test_laps - self.completed_laps} VS Completes {self.completed_laps} --> {success_rate:.2f} %")
         print(f"Lap times Avg: {avg_times} --> Std: {times_std_dev}")
         print(f"Place Avg: {avg_place} --> Std: {place_std_dev}")
+        print(f"Progress Avg: {avg_progress} --> Std: {progress_std_dev}")
 
 
         eval_dict = {}
@@ -158,6 +169,8 @@ class TestSimulation():
         eval_dict['times_std_dev'] = float(times_std_dev)
         eval_dict['avg_place'] = float(avg_place)
         eval_dict['place_std_dev'] = float(place_std_dev)
+        eval_dict['avg_progress'] = float(avg_progress)
+        eval_dict['progress_std_dev'] = float(progress_std_dev)
 
         return eval_dict
 
