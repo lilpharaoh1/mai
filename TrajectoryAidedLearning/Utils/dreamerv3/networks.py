@@ -194,7 +194,8 @@ class RSSM(nn.Module):
                 )
 
         prior = self.img_step(prev_state, prev_action)
-        x = torch.cat([prior["deter"], embed.reshape(1, -1)], -1) # EMRAN check which one should be reshaped
+        # print("in obs_step -> prior[deter], embed :", prior['deter'].shape, embed.shape)
+        x = torch.cat([prior["deter"], embed.reshape(1, -1) if len(embed.shape) == 1 else embed], -1) # EMRAN check which one should be reshaped
         # (batch_size, prior_deter + embed) -> (batch_size, hidden)
         x = self._obs_out_layers(x)
         # (batch_size, hidden) -> (batch_size, stoch, discrete_num)
@@ -214,7 +215,8 @@ class RSSM(nn.Module):
             # (batch, stoch, discrete_num) -> (batch, stoch * discrete_num)
             prev_stoch = prev_stoch.reshape(shape)
         # (batch, stoch * discrete_num) -> (batch, stoch * discrete_num + action)
-        x = torch.cat([prev_stoch, prev_action.reshape(1, -1)], -1) # EMRAN check which one should be reshaped
+        # print("in img_step -> prev_stoch, prev_action :", prev_stoch.shape, prev_action.shape)
+        x = torch.cat([prev_stoch, prev_action.reshape(1, -1) if len(prev_action.shape) == 1 else prev_action], -1) # EMRAN check which one should be reshaped
         # (batch, stoch * discrete_num + action, embed) -> (batch, hidden)
         x = self._img_in_layers(x)
         for _ in range(self._rec_depth):  # rec depth is not correctly implemented
@@ -307,8 +309,25 @@ class MultiEncoder(nn.Module):
         symlog_inputs,
     ):
         super(MultiEncoder, self).__init__()
-        self.mlp_shapes = shapes
-        self.cnn_shapes = None
+        # self.mlp_shapes = shapes
+        # self.cnn_shapes = None
+
+        excluded = ("is_first", "is_last", "is_terminal", "reward")
+        shapes = {
+            k: v
+            for k, v in shapes.items()
+            if k not in excluded and not k.startswith("log_")
+        }
+        self.cnn_shapes =  None
+        # {
+            # k: v for k, v in shapes.items() if len(v) == 3 and re.match(cnn_keys, k)
+        # }
+        self.mlp_shapes = {
+            k: v
+            for k, v in shapes.items()
+            if len(v) in (1, 2) # and re.match(mlp_keys, k)
+        }
+
         print("Decoder CNN shapes:", self.cnn_shapes)
         print("Decoder MLP shapes:", self.mlp_shapes)
 
@@ -322,7 +341,8 @@ class MultiEncoder(nn.Module):
             )
             self.outdim += self._cnn.outdim
         if not self.mlp_shapes is None:
-            input_size = np.sum(self.mlp_shapes) # sum([sum(v) for v in self.mlp_shapes.values()])
+            # input_size = np.sum(self.mlp_shapes) 
+            input_size = sum([sum(v) for v in self.mlp_shapes.values()])
             self._mlp = MLP(
                 input_size,
                 None,
@@ -336,16 +356,16 @@ class MultiEncoder(nn.Module):
             self.outdim += mlp_units
 
     def forward(self, obs):
-        # outputs = []
-        # if not self.cnn_shapes is None:
-        #     inputs = torch.cat([obs[k] for k in self.cnn_shapes], -1)
-        #     outputs.append(self._cnn(inputs))
-        # if not self.mlp_shapes is None:
-        #     inputs = torch.cat([obs[k] for k in self.mlp_shapes], -1)
-        #     outputs.append(self._mlp(inputs))
-        # outputs = torch.cat(outputs, -1)
-        # return outputs
-        return self._mlp(obs)
+        outputs = []
+        if not self.cnn_shapes is None:
+            inputs = torch.cat([obs[k] for k in self.cnn_shapes], -1)
+            outputs.append(self._cnn(inputs))
+        if not self.mlp_shapes is None:
+            inputs = torch.cat([obs[k] for k in self.mlp_shapes], -1)
+            outputs.append(self._mlp(inputs))
+        outputs = torch.cat(outputs, -1)
+        return outputs
+        # return self._mlp(obs)
 
 
 class MultiDecoder(nn.Module):
@@ -368,8 +388,19 @@ class MultiDecoder(nn.Module):
         outscale,
     ):
         super(MultiDecoder, self).__init__()   
-        self.mlp_shapes = shapes
+        # self.mlp_shapes = shapes
+        # self.cnn_shapes = None
+        excluded = ("is_first", "is_last", "is_terminal")
+        shapes = {k: v for k, v in shapes.items() if k not in excluded}
         self.cnn_shapes = None
+        # {
+            # k: v for k, v in shapes.items() if len(v) == 3 and re.match(cnn_keys, k)
+        # }
+        self.mlp_shapes = {
+            k: v
+            for k, v in shapes.items()
+            if len(v) in (1, 2) # and re.match(mlp_keys, k)
+        }
         print("Decoder CNN shapes:", self.cnn_shapes)
         print("Decoder MLP shapes:", self.mlp_shapes)
 
@@ -402,22 +433,22 @@ class MultiDecoder(nn.Module):
         self._image_dist = image_dist
 
     def forward(self, features):
-        # dists = {}
-        # if not self.cnn_shapes is None:
-        #     feat = features
-        #     outputs = self._cnn(feat)
-        #     split_sizes = [v[-1] for v in self.cnn_shapes.values()]
-        #     outputs = torch.split(outputs, split_sizes, -1)
-        #     dists.update(
-        #         {
-        #             key: self._make_image_dist(output)
-        #             for key, output in zip(self.cnn_shapes.keys(), outputs)
-        #         }
-        #     )
-        # if not self.mlp_shapes is None:
-        #     dists.update(self._mlp(features))
-        # return dists
-        return self._mlp(features)
+        dists = {}
+        if not self.cnn_shapes is None:
+            feat = features
+            outputs = self._cnn(feat)
+            split_sizes = [v[-1] for v in self.cnn_shapes.values()]
+            outputs = torch.split(outputs, split_sizes, -1)
+            dists.update(
+                {
+                    key: self._make_image_dist(output)
+                    for key, output in zip(self.cnn_shapes.keys(), outputs)
+                }
+            )
+        if not self.mlp_shapes is None:
+            dists.update(self._mlp(features))
+        return dists
+        # return self._mlp(features)
 
     def _make_image_dist(self, mean):
         if self._image_dist == "normal":

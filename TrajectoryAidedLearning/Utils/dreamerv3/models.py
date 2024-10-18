@@ -33,7 +33,14 @@ class WorldModel(nn.Module):
         self._step = step
         self._use_amp = True if config.precision == 16 else False
         self._config = config
-        shapes =  obs_space # np.concatenate((obs_space, act_space), axis=1) # {k: tuple(v.shape) for k, v in obs_space.spaces.items()}
+        # shapes =  obs_space # np.concatenate((obs_space, act_space), axis=1) # {k: tuple(v.shape) for k, v in obs_space.spaces.items()}
+        shapes = {
+            'is_first': (1,),
+            'image': (108,),
+            'action': (2,),
+            'reward': (1,),
+            'is_terminal': (1,)
+        }
         self.encoder = networks.MultiEncoder(shapes, **config.encoder)
         self.embed_size = self.encoder.outdim
         self.dynamics = networks.RSSM(
@@ -175,11 +182,12 @@ class WorldModel(nn.Module):
     def preprocess(self, obs):
         if type(obs) == np.ndarray:
             return torch.from_numpy(obs).float()
+        print("obs :", obs)
         obs = {
             k: torch.tensor(v, device=self._config.device, dtype=torch.float32)
             for k, v in obs.items()
         }
-        obs["image"] = obs["image"] / 255.0
+        # obs["image"] = #obs["image"] / 255.0
         if "discount" in obs:
             obs["discount"] *= self._config.discount
             # (batch_size, batch_length) -> (batch_size, batch_length, 1)
@@ -315,6 +323,7 @@ class ImagBehavior(nn.Module):
                     weights,
                     base,
                 )
+                print("in ImagBehaviour._train -> self._config.actor[entropy], actor_ent :", self._config.actor['entropy'], actor_ent)
                 actor_loss -= self._config.actor["entropy"] * actor_ent[:-1, ..., None]
                 actor_loss = torch.mean(actor_loss)
                 metrics.update(mets)

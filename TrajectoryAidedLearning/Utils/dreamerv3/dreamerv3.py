@@ -73,7 +73,7 @@ class DreamerV3(nn.Module):
         # this is update step
         self._step = 0 # logger.step // config.action_repeat
         self._update_count = 0
-        # self._dataset = dataset
+        self._dataset = None
         self._wm = models.WorldModel(obs_space, act_space, self._step, config)
         self._task_behavior = models.ImagBehavior(config, self._wm)
         if (
@@ -88,10 +88,16 @@ class DreamerV3(nn.Module):
         #     plan2explore=lambda: expl.Plan2Explore(config, self._wm, reward),
         # )[config.expl_behavior]().to(self._config.device)
 
-    def act(self, obs, action, latent, is_first=[False]):
+    def act(self, obs, action, latent, is_first=False):
+        obs = {
+            "is_first": np.array([is_first]),
+            "image" : obs.reshape(1, -1),
+            "action": action.reshape(1, -1) if not action is None else np.zeros((1, 2)) ,
+            "is_terminal": np.array([0.0])
+        }
         obs = self._wm.preprocess(obs)
         embed = self._wm.encoder(obs)
-        latent, _ = self._wm.dynamics.obs_step(latent, action, embed, torch.tensor(is_first))
+        latent, _ = self._wm.dynamics.obs_step(latent, action, embed, obs["is_first"])
         
         if self._config.eval_state_mean:
             latent["stoch"] = latent["mean"]
@@ -173,9 +179,11 @@ class DreamerV3(nn.Module):
         return policy_output, state
 
     def train(self):
+        if len(self.buffer_eps.keys()) < self._config.batch_size:
+            return
         metrics = {}
-        data = make_dataset(self.buffer_eps, self._config)
-        print(data)
+        self._dataset = make_dataset(self.buffer_eps, self._config)
+        data = next(self._dataset)
         post, context, mets = self._wm._train(data)
         metrics.update(mets)
         start = post
@@ -201,7 +209,7 @@ class DreamerV3(nn.Module):
             "agent_state_dict": self.state_dict(),
             "optims_state_dict": tools.recursively_collect_optim_state_dict(self),
         }
-        torch.save(items_to_save, path + "latest.pt")
+        torch.save(items_to_save, path + "/" + self.name + ".pt")
 
 
 def count_steps(folder):

@@ -46,7 +46,7 @@ class DreamerV3Trainer:
             print(f"NAN in state: {nn_state}")
 
         self.nn_state = nn_state # after to prevent call before check for v_min_plan
-        self.nn_act, self.nn_rssm = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, is_first=[self.nn_act is None])
+        self.nn_act, self.nn_rssm = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, is_first=self.nn_act is None)
         self.nn_act = self.nn_act.squeeze(0)
 
         if np.isnan(self.nn_act).any():
@@ -63,11 +63,12 @@ class DreamerV3Trainer:
             self.t_his.add_step_data(obs['reward'])
 
             transition = {}
-            transition['obs'] = self.nn_state
-            transition['latent'] = self.nn_rssm
+            transition['is_first'] = np.array(1.0 if self.nn_act is None else 0.0)
+            transition['image'] = self.nn_state
             transition['action'] = self.nn_act
             transition['reward'] = obs['reward']
-            transition['discount'] = np.array(1.0 if not done else 0.0)
+            # transition['discount'] = np.array(1.0 if not done else 0.0)
+            transition['is_terminal'] = np.array(1.0 if not done else 0.0)
 
 
             eps_name = 'eps_' + str(self.agent.buffer_ptr)
