@@ -201,8 +201,11 @@ class DreamerV3(nn.Module):
                 self._metrics[name].append(value)
 
     def save(self, path):
+        eps_dir = path + "/Buffer"
         eps_name = 'eps_' + str(self.buffer_ptr)
-        tools.save_episodes(path, {eps_name: self.buffer_eps[eps_name]})
+        if not os.path.exists(eps_dir):
+            os.mkdir(eps_dir)
+        tools.save_episodes(eps_dir, {eps_name: self.buffer_eps[eps_name]})
         self.buffer_ptr += 1 
 
         items_to_save = {
