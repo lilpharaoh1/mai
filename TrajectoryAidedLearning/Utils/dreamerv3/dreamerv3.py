@@ -179,8 +179,8 @@ class DreamerV3(nn.Module):
         return policy_output, state
 
     def train(self):
-        # if len(self.buffer_eps.keys()) < self._config.batch_size:
-            # return
+        if len(self.buffer_eps.keys()) < self._config.batch_size * 2:
+            return
         metrics = {}
         self._dataset = make_dataset(self.buffer_eps, self._config)
         data = next(self._dataset)
