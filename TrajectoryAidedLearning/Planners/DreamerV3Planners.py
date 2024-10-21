@@ -9,11 +9,12 @@ from TrajectoryAidedLearning.Utils.utils import init_file_struct
 from matplotlib import pyplot as plt
 
 class DreamerV3Trainer: 
-    def __init__(self, run, conf):
+    def __init__(self, run, conf, init=False):
         self.run, self.conf = run, conf
         self.name = run.run_name
         self.path = conf.vehicle_path + run.path + run.run_name 
-        init_file_struct(self.path)
+        if init:
+            init_file_struct(self.path)
 
         self.v_min_plan =  conf.v_min_plan
 

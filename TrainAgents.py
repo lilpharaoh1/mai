@@ -50,7 +50,7 @@ def select_agent(run, conf, architecture, train=True, init=False):
     elif agent_type == "DreamerV2":
         agent = DreamerV2Trainer(run, conf) if train else DreamerV2Tester(run, conf)
     elif agent_type == "DreamerV3":
-        agent = DreamerV3Trainer(run, conf) if train else DreamerV3Tester(run, conf)
+        agent = DreamerV3Trainer(run, conf,, init=init) if train else DreamerV3Tester(run, conf)
     elif agent_type == "DispExt":
         agent = DispExt(run, conf)
     else: raise Exception("Unknown agent type: " + agent_type)
