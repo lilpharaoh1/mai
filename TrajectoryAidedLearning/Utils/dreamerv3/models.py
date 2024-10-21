@@ -182,8 +182,8 @@ class WorldModel(nn.Module):
     def preprocess(self, obs):
         if type(obs) == np.ndarray:
             return torch.from_numpy(obs).float()
-        print("obs :", obs)
-        print("obs[image].shape :", obs["image"].shape)
+        # print("obs :", obs)
+        # print("obs[image].shape :", obs["image"].shape)
         obs = {
             k: torch.tensor(v, device=self._config.device, dtype=torch.float32)
             for k, v in obs.items()
@@ -324,7 +324,7 @@ class ImagBehavior(nn.Module):
                     weights,
                     base,
                 )
-                print("in ImagBehaviour._train -> self._config.actor[entropy], actor_ent :", self._config.actor['entropy'], actor_ent)
+                # print("in ImagBehaviour._train -> self._config.actor[entropy], actor_ent :", self._config.actor['entropy'], actor_ent)
                 actor_loss -= self._config.actor["entropy"] * actor_ent[:-1, ..., None]
                 actor_loss = torch.mean(actor_loss)
                 metrics.update(mets)

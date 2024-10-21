@@ -328,8 +328,8 @@ class MultiEncoder(nn.Module):
             if len(v) in (1, 2) # and re.match(mlp_keys, k)
         }
 
-        print("Decoder CNN shapes:", self.cnn_shapes)
-        print("Decoder MLP shapes:", self.mlp_shapes)
+        print("Encoder CNN shapes:", self.cnn_shapes)
+        print("Encoder MLP shapes:", self.mlp_shapes)
 
 
         self.outdim = 0
@@ -618,7 +618,7 @@ class MLP(nn.Module):
         unimix_ratio=0.01,
         outscale=1.0,
         symlog_inputs=False,
-        device="cpu", # EMRAN "cuda"
+        device="cuda",
         name="NoName",
     ):
         super(MLP, self).__init__()
