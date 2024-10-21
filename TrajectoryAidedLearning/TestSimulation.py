@@ -35,6 +35,8 @@ class TestSimulation():
         self.n_test_laps = None
         self.lap_times = None
         self.completed_laps = None
+        self.places = None
+        self.progresses = None
         self.prev_obs = None
         self.prev_action = None
 
@@ -75,13 +77,16 @@ class TestSimulation():
                 planner = AgentTester(run, self.conf)
             else: raise AssertionError(f"Planner {run.planner} not found")
 
-            if run.test_mode == "Std": self.target_planner = planner
-            else: raise AssertionError(f"Test mode {run.test_mode} not found")
+            if run.map_mode == "Std": self.target_planner = planner
+            else: raise AssertionError(f"Test mode {run.map_mode} not found")
 
-            self.vehicle_state_history = VehicleStateHistory(run, "Testing/")
+            self.vehicle_state_history = [VehicleStateHistory(run, f"Testing/agent_{agent_id}") for agent_id in range(run.num_agents)]
+
 
             self.n_test_laps = run.n_test_laps
             self.lap_times = []
+            self.places = []
+            self.progresses = []
             self.completed_laps = 0
 
             eval_dict = self.run_testing()
@@ -100,23 +105,26 @@ class TestSimulation():
             observations = self.reset_simulation()
             target_obs = observations[0]
 
-
             while not target_obs['colision_done'] and not target_obs['lap_done'] and not target_obs['current_laptime'] > self.conf.max_laptime:
+                self.prev_obs = observations
                 target_action = self.target_planner.plan(observations[0])
                 if len(self.adv_planners) > 0:
                     adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
                     actions = np.concatenate((target_action.reshape(1, -1), adv_actions), axis=0)
                 else:
-                    actions = target_actions
+                    actions = target_action.reshape(1, -1)
                 observations = self.run_step(actions)
                 target_obs = observations[0]
 
                 if SHOW_TEST: self.env.render('human_fast')
 
             self.target_planner.lap_complete()
+            self.progresses.append(target_obs['progress'])
             if target_obs['lap_done']:
                 if VERBOSE: print(f"Lap {i} Complete in time: {target_obs['current_laptime']}")
                 self.lap_times.append(target_obs['current_laptime'])
+                self.places.append(target_obs['position'])
+
                 self.completed_laps += 1
 
             if target_obs['colision_done']:
@@ -125,23 +133,44 @@ class TestSimulation():
             if target_obs['current_laptime'] > self.conf.max_laptime:
                 if VERBOSE: print(f"Lap {i} LapTimeExceeded in time: {target_obs['current_laptime']}")
 
-            if self.vehicle_state_history: self.vehicle_state_history.save_history(i, test_map=self.map_name)
+            if self.vehicle_state_history: 
+                for vsh in self.vehicle_state_history:
+                    vsh.save_history(i, test_map=self.map_name)
+                    # vsh.save_history(f"test_{i}", test_map=self.map_name)
+
 
         print(f"Tests are finished in: {time.time() - start_time}")
 
         success_rate = (self.completed_laps / (self.n_test_laps) * 100)
         if len(self.lap_times) > 0:
-            avg_times, std_dev = np.mean(self.lap_times), np.std(self.lap_times)
+            avg_times, times_std_dev = np.mean(self.lap_times), np.std(self.lap_times)
         else:
-            avg_times, std_dev = 0, 0
+            avg_times, times_std_dev = 0, 0
+
+        if len(self.places) > 0:
+            avg_place, place_std_dev = np.mean(self.places), np.std(self.places)
+        else:
+            avg_place, place_std_dev = 0, 0
+
+        if len(self.progresses) > 0:
+            avg_progress, progress_std_dev = np.mean(self.progresses), np.std(self.progresses)
+        else:
+            avg_progress, progress_std_dev = 0, 0
 
         print(f"Crashes: {self.n_test_laps - self.completed_laps} VS Completes {self.completed_laps} --> {success_rate:.2f} %")
-        print(f"Lap times Avg: {avg_times} --> Std: {std_dev}")
+        print(f"Lap times Avg: {avg_times} --> Std: {times_std_dev}")
+        print(f"Place Avg: {avg_place} --> Std: {place_std_dev}")
+        print(f"Progress Avg: {avg_progress} --> Std: {progress_std_dev}")
+
 
         eval_dict = {}
         eval_dict['success_rate'] = float(success_rate)
         eval_dict['avg_times'] = float(avg_times)
-        eval_dict['std_dev'] = float(std_dev)
+        eval_dict['times_std_dev'] = float(times_std_dev)
+        eval_dict['avg_place'] = float(avg_place)
+        eval_dict['place_std_dev'] = float(place_std_dev)
+        eval_dict['avg_progress'] = float(avg_progress)
+        eval_dict['progress_std_dev'] = float(progress_std_dev)
 
         return eval_dict
 
@@ -149,7 +178,8 @@ class TestSimulation():
     def run_step(self, actions):
         sim_steps = self.conf.sim_steps
         if self.vehicle_state_history: 
-            self.vehicle_state_history.add_action(actions[0])
+            for vsh, action in zip(self.vehicle_state_history, actions):
+                vsh.add_action(action)
         self.prev_action = actions[0]
 
         sim_steps, done = sim_steps, False
@@ -178,7 +208,7 @@ class TestSimulation():
         observations = []
         for agent_id in range(self.num_agents):
             observation = {}
-            observation['current_laptime'] = obs['lap_times'][0]
+            observation['current_laptime'] = obs['lap_times'][agent_id]
             observation['scan'] = obs['scans'][agent_id] #TODO: introduce slicing here
             
             if self.noise_rng:
@@ -194,6 +224,7 @@ class TestSimulation():
             observation['state'] = state
             observation['lap_done'] = False
             observation['colision_done'] = False
+            observation['position'] = 0
 
             observation['reward'] = 0.0
 
@@ -204,13 +235,16 @@ class TestSimulation():
                 observation['colision_done'] = True
 
             if self.std_track is not None:
-                if (self.std_track.check_done(agent_id, observation) and obs['lap_counts'][agent_id] == 0) \
+                self.std_track.calculate_progress(agent_id, state[0:2])
+
+                if (self.std_track.check_done(agent_id) and obs['lap_counts'][agent_id] == 0) \
                                     or (not self.prev_obs is None and self.prev_obs[agent_id]['colision_done']):
                     observation['colision_done'] = True
 
+
                 if self.prev_obs is None: observation['progress'] = 0
                 elif self.prev_obs[agent_id]['lap_done'] == True: observation['progress'] = 0
-                else: observation['progress'] = max(self.std_track.calculate_progress_percent(state[0:2]), self.prev_obs[agent_id]['progress'])
+                else: observation['progress'] = max(self.std_track.calculate_progress_percent(agent_id), self.prev_obs[agent_id]['progress'])
                 # self.racing_race_track.plot_vehicle(state[0:2], state[2])
                 # taking the max progress
                 
@@ -223,12 +257,29 @@ class TestSimulation():
                 reward_action = None if self.prev_action is None else self.prev_action[agent_id]
                 observation['reward'] = self.reward(observation, reward_obs, reward_action)
 
-            if self.vehicle_state_history and agent_id == 0:
-                self.vehicle_state_history.add_state(obs['full_states'][0])
+            if self.vehicle_state_history:
+                self.vehicle_state_history[agent_id].add_state(obs['full_states'][agent_id])
+                self.vehicle_state_history[agent_id].add_progress(observation['progress'])
 
             # Append agent_observation to total observations
             observations.append(observation)
+        
+        # Set the position values for each agent
+        observations = self.score_positions(observations)
 
+        # if self.vehicle_state_history:
+            # for agent_id in range(self.num_agents):
+                # self.vehicle_state_history
+
+        return observations
+
+    def score_positions(self, observations):
+        scores = self.std_track.s
+        sorted_scores = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
+
+        for rank, agent_id in enumerate(sorted_scores):
+            observations[agent_id]['position'] = rank + 1
+        
         return observations
 
     def calc_offsets(self, num_adv):
@@ -261,7 +312,8 @@ class TestSimulation():
 
         self.prev_obs = None
         if self.std_track is not None:
-            self.std_track.max_distance = np.zeros((self.num_agents))
+            self.std_track.max_distance = np.zeros((self.num_agents)) - 999.9
+            self.std_track.s = np.zeros((self.num_agents)) - 999.9
 
         observation = self.build_observation(obs, done)
 

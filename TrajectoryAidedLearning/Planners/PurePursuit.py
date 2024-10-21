@@ -288,22 +288,24 @@ def get_actuation(pose_theta, lookahead_point, position, lookahead_distance, whe
 
 
 class PurePursuit:
-    def __init__(self, conf, run, init=True):
+    def __init__(self, run, conf, init=False):
         self.name = run.run_name
         path = os.getcwd() + f"/Data/Vehicles/" + run.path  + self.name
-        if init: 
+        if init:
             init_file_struct(path)
-            self.mode = "racing"
-        else:
-            self.mode = "training"
+        # if init: 
+        #     init_file_struct(path)
+        #     self.mode = "racing"
+        # else:
+        #     self.mode = "training"
             
         self.conf = conf
         self.run = run
 
-        self.raceline = run.raceline
-        self.speed_mode = run.pp_speed_mode
+        self.raceline = True # run.raceline
+        self.speed_mode = 'raceline'# run.pp_speed_mode
         self.max_speed = run.max_speed
-        self.trajectory = Trajectory(run.map_name, run.raceline)
+        self.trajectory = Trajectory(run.map_name, self.raceline)
 
         self.lookahead = conf.lookahead 
         self.v_min_plan = conf.v_min_plan
@@ -314,10 +316,11 @@ class PurePursuit:
         state = obs['state']
         position = state[0:2]
         theta = state[2]
-        if self.mode == "training":
-            lookahead = 1 + 0.6 * state[3] / 8 # original....
-        elif self.mode == "racing":
-            lookahead = 1 + (self.max_speed/10) * state[3] /  self.max_speed
+        # if self.mode == "training":
+        #     lookahead = 1 + 0.6 * state[3] / 8 # original....
+        # elif self.mode == "racing":
+        #     lookahead = 1 + (self.max_speed/10) * state[3] /  self.max_speed
+        lookahead = 1 + (self.max_speed/10) * state[3] /  self.max_speed
         lookahead_point = self.trajectory.get_current_waypoint(position, lookahead)
 
         if state[3] < self.v_min_plan:
