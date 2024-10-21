@@ -351,12 +351,6 @@ def sample_episodes(episodes, length, seed=0):
                 # 'is_first' comes after 'is_last'
                 index = 0
                 possible = length - size
-                for k, v in episode.items():
-                    if k == "image":
-                        continue
-                    print("k, v :", k, v)
-                    print("length :", min(index + possible, total))
-                    print("------------------------------")
                 ret = {
                     k: np.append(
                         ret[k], v[index : min(index + possible, total)].copy(), axis=0

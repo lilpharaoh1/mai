@@ -90,7 +90,7 @@ class DreamerV3(nn.Module):
 
     def act(self, obs, action, latent, is_first=False):
         obs = {
-            "is_first": np.array([is_first]),
+            "is_first": np.array([1.0 if is_first else 0.0]),
             "image" : obs.reshape(1, -1),
             "action": action.reshape(1, -1) if not action is None else np.zeros((1, 2)) ,
             "is_terminal": np.array([0.0])
@@ -116,7 +116,7 @@ class DreamerV3(nn.Module):
         # return policy_output, state
  
 
-    def __call__(self, obs, action, latent, is_first=[False]):
+    def __call__(self, obs, action, latent, is_first=False):
         return self.act(obs, action, latent, is_first=is_first)
 
     # def __call__(self, obs, reset, state=None, training=True):
@@ -179,11 +179,15 @@ class DreamerV3(nn.Module):
         return policy_output, state
 
     def train(self):
-        if len(self.buffer_eps.keys()) < self._config.batch_size * 2:
+        if len(self.buffer_eps.keys()) < 2: # < self._config.batch_size * 2:
             return
         metrics = {}
         self._dataset = make_dataset(self.buffer_eps, self._config)
         data = next(self._dataset)
+        # unsqueeze is_frist, is_terminal and reward EMRAN hack fix again
+        for k, v in data.items():
+            if v.shape[-1] == 1:
+                data[k] = v.squeeze(-1)
         post, context, mets = self._wm._train(data)
         metrics.update(mets)
         start = post

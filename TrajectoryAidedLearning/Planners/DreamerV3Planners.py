@@ -47,7 +47,9 @@ class DreamerV3Trainer:
             print(f"NAN in state: {nn_state}")
 
         self.nn_state = nn_state # after to prevent call before check for v_min_plan
-        self.nn_act, self.nn_rssm = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, is_first=self.nn_act is None)
+        if self.nn_act is None:
+            print("self.nn_act is None!!!!!")
+        self.nn_act, self.nn_rssm = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, is_first=True if self.nn_act is None else False)
         self.nn_act = self.nn_act.squeeze(0)
 
         if np.isnan(self.nn_act).any():
@@ -63,23 +65,22 @@ class DreamerV3Trainer:
         if self.nn_state is not None:
             self.t_his.add_step_data(obs['reward'])
 
-            transition = {}
-            transition['is_first'] = np.array(1.0 if self.nn_act is None else 0.0)
-            transition['image'] = self.nn_state
-            transition['action'] = self.nn_act
-            transition['reward'] = obs['reward']
-            # transition['discount'] = np.array(1.0 if not done else 0.0)
-            transition['is_terminal'] = np.array(1.0 if not done else 0.0)
-
-
             eps_name = 'eps_' + str(self.agent.buffer_ptr)
+            
+            transition = {}
+            transition['is_first'] = np.array(1.0 if eps_name not in self.agent.buffer_eps else 0.0) # EMRAN hacky fix
+            transition['image'] = np.array(self.nn_state)
+            transition['action'] = np.array(self.nn_act)
+            transition['reward'] = np.array(obs['reward'])
+            transition['is_terminal'] = np.array(0.0 if not done else 1.0)
+            
             if eps_name not in self.agent.buffer_eps:
                 self.agent.buffer_eps[eps_name] = {}
                 for k in transition.keys():
-                    self.agent.buffer_eps[eps_name][k] = [transition[k]]
+                    self.agent.buffer_eps[eps_name][k] = np.array([transition[k]]).reshape(1, -1)
             else:
                 for k in self.agent.buffer_eps[eps_name].keys():
-                    self.agent.buffer_eps[eps_name][k].append(transition[k])
+                    self.agent.buffer_eps[eps_name][k] = np.append(self.agent.buffer_eps[eps_name][k], transition[k].copy().reshape(1, -1), axis=0)
             # self.agent.buffer.add(self.nn_state, self.nn_act, obs['reward'], False)
 
     def intervention_entry(self, obs):
@@ -105,7 +106,7 @@ class DreamerV3Trainer:
             print(f"Crashed on first step: RETURNING")
             return
         
-        self.agent.save(self.path)
+        # self.agent.save(self.path)
         if np.isnan(self.nn_act).any():
             print(f"NAN in act: {self.nn_act}")
             raise Exception("NAN in act")
@@ -114,8 +115,9 @@ class DreamerV3Trainer:
             raise Exception("NAN in state")
 
         self.add_memory_entry(obs, done=True)
-        # self.agent.buffer.add(self.nn_state, self.nn_act, obs['reward'], True)
         self.nn_state = None
+        self.nn_act = None
+        self.nn_act = None
 
     def lap_complete(self):
         pass
