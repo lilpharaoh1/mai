@@ -298,11 +298,14 @@ def save_episodes(directory, episodes):
     for filename, episode in episodes.items():
         length = len(episode["reward"])
         filename = directory / f"{filename}-{length}.npz"
-        with io.BytesIO() as f1:
-            np.savez_compressed(f1, **episode)
-            f1.seek(0)
-            with filename.open("wb") as f2:
-                f2.write(f1.read())
+        try:
+            with io.BytesIO() as f1:
+                np.savez_compressed(f1, **episode)
+                f1.seek(0)
+                with filename.open("wb") as f2:
+                    f2.write(f1.read())
+        except:
+            np.savez_compressed(filename, **episode)
     return True
 
 
@@ -348,6 +351,12 @@ def sample_episodes(episodes, length, seed=0):
                 # 'is_first' comes after 'is_last'
                 index = 0
                 possible = length - size
+                for k, v in episode.items():
+                    if k == "image":
+                        continue
+                    print("k, v :", k, v)
+                    print("length :", min(index + possible, total))
+                    print("------------------------------")
                 ret = {
                     k: np.append(
                         ret[k], v[index : min(index + possible, total)].copy(), axis=0
