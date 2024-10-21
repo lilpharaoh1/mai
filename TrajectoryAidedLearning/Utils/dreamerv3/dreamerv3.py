@@ -179,8 +179,8 @@ class DreamerV3(nn.Module):
         return policy_output, state
 
     def train(self):
-        if len(self.buffer_eps.keys()) < self._config.batch_size:
-            return
+        # if len(self.buffer_eps.keys()) < self._config.batch_size:
+            # return
         metrics = {}
         self._dataset = make_dataset(self.buffer_eps, self._config)
         data = next(self._dataset)
@@ -209,7 +209,7 @@ class DreamerV3(nn.Module):
             "agent_state_dict": self.state_dict(),
             "optims_state_dict": tools.recursively_collect_optim_state_dict(self),
         }
-        torch.save(items_to_save, path + "/" + self.name + ".pt")
+        torch.save(items_to_save, path + "/" + self.name + ".pth")
 
 
 def count_steps(folder):

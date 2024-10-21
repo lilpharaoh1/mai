@@ -183,6 +183,7 @@ class WorldModel(nn.Module):
         if type(obs) == np.ndarray:
             return torch.from_numpy(obs).float()
         print("obs :", obs)
+        print("obs[image].shape :", obs["image"].shape)
         obs = {
             k: torch.tensor(v, device=self._config.device, dtype=torch.float32)
             for k, v in obs.items()

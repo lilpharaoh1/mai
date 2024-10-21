@@ -138,9 +138,15 @@ class DreamerV3Tester:
         self.v_min_plan = conf.v_min_plan
         self.path = conf.vehicle_path + run.path + run.run_name 
 
-        self.actor = torch.load(self.path + '/' + run.run_name + "_actor.pth")
-
         self.transform = FastTransform(run, conf)
+
+        self.agent = DreamerV3(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out)
+        checkpoint = torch.load(self.path + '/' + run.run_name + ".pth")
+        self.agent.load_state_dict(checkpoint['agent_state_dict'])
+        self.nn_state = None
+        self.nn_act = None
+        self.nn_rssm = None
+
         self.window_in = run.window_in
         self.n_beams = conf.n_beams
         self.scan_buffer = np.zeros((self.window_in, self.n_beams))
@@ -155,19 +161,28 @@ class DreamerV3Tester:
         nn_obs = self.transform.transform_obs(obs)
 
 
-        if self.scan_buffer.all() ==0: # first reading
-            for i in range(self.window_in):
-                self.scan_buffer[i, :] = nn_obs 
-        else:
-            self.scan_buffer = np.roll(self.scan_buffer, 1, axis=0)
-            self.scan_buffer[0, :] = nn_obs
+        # if self.scan_buffer.all() ==0: # first reading
+        #     for i in range(self.window_in):
+        #         self.scan_buffer[i, :] = nn_obs 
+        # else:
+        #     self.scan_buffer = np.roll(self.scan_buffer, 1, axis=0)
+        #     self.scan_buffer[0, :] = nn_obs
 
-        nn_obs = np.reshape(self.scan_buffer, (self.window_in * self.n_beams))
-        nn_obs = torch.FloatTensor(nn_obs.reshape(1, -1))
-        nn_action = self.actor(nn_obs).data.numpy().flatten()
-        self.nn_act = nn_action
+        # nn_obs = np.reshape(self.scan_buffer, (self.window_in * self.n_beams))
+        # nn_obs = torch.FloatTensor(nn_obs.reshape(1, -1))
 
-        self.action = self.transform.transform_action(nn_action)
+
+        self.nn_state = nn_obs # after to prevent call before check for v_min_plan
+        self.nn_act, self.nn_rssm = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, is_first=self.nn_act is None)
+        # self.nn_act,  = self.agent(nn_obs).data.numpy().flatten()
+        self.nn_act = self.nn_act.squeeze(0)
+
+        if np.isnan(self.nn_act).any():
+            print(f"NAN in act: {nn_state}")
+            raise Exception("Unknown NAN in act")
+
+        self.transform.transform_obs(obs) # to ensure correct PP actions
+        self.action = self.transform.transform_action(self.nn_act)
 
         return self.action 
 
