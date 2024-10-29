@@ -47,8 +47,8 @@ class DreamerV3Trainer:
             print(f"NAN in state: {nn_state}")
 
         self.nn_state = nn_state # after to prevent call before check for v_min_plan
-        if self.nn_act is None:
-            print("self.nn_act is None!!!!!")
+        # if self.nn_act is None:
+        #     print("self.nn_act is None!!!!!")
         self.nn_act, self.nn_rssm = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, is_first=True if self.nn_act is None else False)
         self.nn_act = self.nn_act.squeeze(0)
 
