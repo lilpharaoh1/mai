@@ -3,6 +3,8 @@ import torch
 from torch import nn
 import numpy as np
 
+import time
+
 import networks
 import tools
 
@@ -42,6 +44,7 @@ class WorldModel(nn.Module):
             'is_terminal': (1,)
         }
         self.encoder = networks.MultiEncoder(shapes, **config.encoder)
+        self.encoder._mlp.to(config.device)
         self.embed_size = self.encoder.outdim
         self.dynamics = networks.RSSM(
             config.dyn_stoch,
@@ -114,24 +117,35 @@ class WorldModel(nn.Module):
         )
 
     def _train(self, data):
+        # print("--------------------------------------------")
+        # before = time.time()
         # action (batch_size, batch_length, act_dim)
         # image (batch_size, batch_length, h, w, ch)
         # reward (batch_size, batch_length)
         # discount (batch_size, batch_length)
         data = self.preprocess(data)
 
+        # print("self.preprocess(data) :", time.time() - before)
+        # before = time.time()
+
         with tools.RequiresGrad(self):
             with torch.cuda.amp.autocast(self._use_amp):
                 embed = self.encoder(data)
+                # print("Encoder :", time.time() - before)
+                # before = time.time()
                 post, prior = self.dynamics.observe(
                     embed, data["action"], data["is_first"]
                 )
+                # print("Dynamics Observe :", time.time() - before)
+                # before = time.time()
                 kl_free = self._config.kl_free
                 dyn_scale = self._config.dyn_scale
                 rep_scale = self._config.rep_scale
                 kl_loss, kl_value, dyn_loss, rep_loss = self.dynamics.kl_loss(
                     post, prior, kl_free, dyn_scale, rep_scale
                 )
+                # print("Dynamics Loss :", time.time() - before)
+                # before = time.time()
                 assert kl_loss.shape == embed.shape[:2], kl_loss.shape
                 preds = {}
                 for name, head in self.heads.items():
@@ -148,14 +162,20 @@ class WorldModel(nn.Module):
                     loss = -pred.log_prob(data[name])
                     assert loss.shape == embed.shape[:2], (name, loss.shape)
                     losses[name] = loss
+                # print("Pred Loss:", time.time() - before)
+                # before = time.time()
                 scaled = {
                     key: value * self._scales.get(key, 1.0)
                     for key, value in losses.items()
                 }
                 model_loss = sum(scaled.values()) + kl_loss
+                # print("Scaled model loss :", time.time() - before)
+                # before = time.time()
             metrics = self._model_opt(torch.mean(model_loss), self.parameters())
 
         metrics.update({f"{name}_loss": to_np(loss) for name, loss in losses.items()})
+        # print("Metrics update :", time.time() - before)
+        # before = time.time()
         metrics["kl_free"] = kl_free
         metrics["dyn_scale"] = dyn_scale
         metrics["rep_scale"] = rep_scale
@@ -181,7 +201,7 @@ class WorldModel(nn.Module):
     # this function is called during both rollout and training
     def preprocess(self, obs):
         if type(obs) == np.ndarray:
-            return torch.from_numpy(obs).float()
+            return torch.from_numpy(obs).float().to(self._config.device)
         # print("obs :", obs)
         # print("obs[image].shape :", obs["image"].shape)
         obs = {
@@ -198,7 +218,7 @@ class WorldModel(nn.Module):
         # 'is_terminal' is necesarry to train cont_head
         assert "is_terminal" in obs
         obs["cont"] = (1.0 - obs["is_terminal"]).unsqueeze(-1)
-
+        
         return obs
 
     def video_pred(self, data):
@@ -235,6 +255,7 @@ class ImagBehavior(nn.Module):
             feat_size = config.dyn_stoch * config.dyn_discrete + config.dyn_deter
         else:
             feat_size = config.dyn_stoch + config.dyn_deter
+        
         self.actor = networks.MLP(
             feat_size,
             (config.num_actions,),
@@ -250,6 +271,7 @@ class ImagBehavior(nn.Module):
             temp=config.actor["temp"],
             unimix_ratio=config.actor["unimix_ratio"],
             outscale=config.actor["outscale"],
+            device=config.device,
             name="Actor",
         )
         self.value = networks.MLP(

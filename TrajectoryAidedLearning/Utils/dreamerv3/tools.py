@@ -962,6 +962,7 @@ def enable_deterministic_run():
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
     torch.backends.cudnn.benchmark = False
     torch.use_deterministic_algorithms(True)
+    print("\n\n\n\n\n\n\n in here...")
 
 
 def recursively_collect_optim_state_dict(

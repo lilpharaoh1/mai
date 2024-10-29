@@ -50,7 +50,7 @@ class DreamerV3Trainer:
         # if self.nn_act is None:
         #     print("self.nn_act is None!!!!!")
         self.nn_act, self.nn_rssm = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, is_first=True if self.nn_act is None else False)
-        self.nn_act = self.nn_act.squeeze(0)
+        self.nn_act = self.nn_act.cpu().squeeze(0)
 
         if np.isnan(self.nn_act).any():
             print(f"NAN in act: {nn_state}")
@@ -116,7 +116,7 @@ class DreamerV3Trainer:
 
         self.add_memory_entry(obs, done=True)
         self.nn_state = None
-        self.nn_act = None
+        self.nn_rssm = None
         self.nn_act = None
 
     def lap_complete(self):

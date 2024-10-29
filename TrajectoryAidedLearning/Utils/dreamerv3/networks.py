@@ -10,6 +10,10 @@ from torch import distributions as torchd
 import tools
 
 
+import time
+
+
+
 class RSSM(nn.Module):
     def __init__(
         self,
@@ -54,9 +58,9 @@ class RSSM(nn.Module):
         if norm:
             inp_layers.append(nn.LayerNorm(self._hidden, eps=1e-03))
         inp_layers.append(act())
-        self._img_in_layers = nn.Sequential(*inp_layers)
+        self._img_in_layers = nn.Sequential(*inp_layers).to(self._device)
         self._img_in_layers.apply(tools.weight_init)
-        self._cell = GRUCell(self._hidden, self._deter, norm=norm)
+        self._cell = GRUCell(self._hidden, self._deter, norm=norm).to(self._device)
         self._cell.apply(tools.weight_init)
 
         img_out_layers = []
@@ -65,7 +69,7 @@ class RSSM(nn.Module):
         if norm:
             img_out_layers.append(nn.LayerNorm(self._hidden, eps=1e-03))
         img_out_layers.append(act())
-        self._img_out_layers = nn.Sequential(*img_out_layers)
+        self._img_out_layers = nn.Sequential(*img_out_layers).to(self._device)
         self._img_out_layers.apply(tools.weight_init)
 
         obs_out_layers = []
@@ -74,20 +78,20 @@ class RSSM(nn.Module):
         if norm:
             obs_out_layers.append(nn.LayerNorm(self._hidden, eps=1e-03))
         obs_out_layers.append(act())
-        self._obs_out_layers = nn.Sequential(*obs_out_layers)
+        self._obs_out_layers = nn.Sequential(*obs_out_layers).to(self._device)
         self._obs_out_layers.apply(tools.weight_init)
 
         if self._discrete:
             self._imgs_stat_layer = nn.Linear(
                 self._hidden, self._stoch * self._discrete
-            )
+            ).to(self._device)
             self._imgs_stat_layer.apply(tools.uniform_weight_init(1.0))
-            self._obs_stat_layer = nn.Linear(self._hidden, self._stoch * self._discrete)
+            self._obs_stat_layer = nn.Linear(self._hidden, self._stoch * self._discrete).to(self._device)
             self._obs_stat_layer.apply(tools.uniform_weight_init(1.0))
         else:
-            self._imgs_stat_layer = nn.Linear(self._hidden, 2 * self._stoch)
+            self._imgs_stat_layer = nn.Linear(self._hidden, 2 * self._stoch).to(self._device)
             self._imgs_stat_layer.apply(tools.uniform_weight_init(1.0))
-            self._obs_stat_layer = nn.Linear(self._hidden, 2 * self._stoch)
+            self._obs_stat_layer = nn.Linear(self._hidden, 2 * self._stoch).to(self._device)
             self._obs_stat_layer.apply(tools.uniform_weight_init(1.0))
 
         if self._initial == "learned":
@@ -137,7 +141,7 @@ class RSSM(nn.Module):
             (action, embed, is_first),
             (state, state),
         )
-
+        
         # (batch, time, stoch, discrete_num) -> (batch, time, stoch, discrete_num)
         post = {k: swap(v) for k, v in post.items()}
         prior = {k: swap(v) for k, v in prior.items()}
@@ -353,6 +357,7 @@ class MultiEncoder(nn.Module):
                 norm,
                 symlog_inputs=symlog_inputs,
                 name="Encoder",
+                device='cuda:0',
             )
             self.outdim += mlp_units
 
@@ -430,6 +435,7 @@ class MultiDecoder(nn.Module):
                 vector_dist,
                 outscale=outscale,
                 name="Decoder",
+                device='cuda:0',
             )
         self._image_dist = image_dist
 
@@ -640,11 +646,11 @@ class MLP(nn.Module):
         self.layers = nn.Sequential()
         for i in range(layers):
             self.layers.add_module(
-                f"{name}_linear{i}", nn.Linear(inp_dim, units, bias=False)
+                f"{name}_linear{i}", nn.Linear(inp_dim, units, bias=False).to(device)
             )
             if norm:
                 self.layers.add_module(
-                    f"{name}_norm{i}", nn.LayerNorm(units, eps=1e-03)
+                    f"{name}_norm{i}", nn.LayerNorm(units, eps=1e-03).to(device)
                 )
             self.layers.add_module(f"{name}_act{i}", act())
             if i == 0:
@@ -654,20 +660,20 @@ class MLP(nn.Module):
         if isinstance(self._shape, dict):
             self.mean_layer = nn.ModuleDict()
             for name, shape in self._shape.items():
-                self.mean_layer[name] = nn.Linear(inp_dim, np.prod(shape))
+                self.mean_layer[name] = nn.Linear(inp_dim, np.prod(shape)).to(device)
             self.mean_layer.apply(tools.uniform_weight_init(outscale))
             if self._std == "learned":
                 assert dist in ("tanh_normal", "normal", "trunc_normal", "huber"), dist
                 self.std_layer = nn.ModuleDict()
                 for name, shape in self._shape.items():
-                    self.std_layer[name] = nn.Linear(inp_dim, np.prod(shape))
+                    self.std_layer[name] = nn.Linear(inp_dim, np.prod(shape)).to(device)
                 self.std_layer.apply(tools.uniform_weight_init(outscale))
         elif self._shape is not None:
-            self.mean_layer = nn.Linear(inp_dim, np.prod(self._shape))
+            self.mean_layer = nn.Linear(inp_dim, np.prod(self._shape)).to(device)
             self.mean_layer.apply(tools.uniform_weight_init(outscale))
             if self._std == "learned":
                 assert dist in ("tanh_normal", "normal", "trunc_normal", "huber"), dist
-                self.std_layer = nn.Linear(units, np.prod(self._shape))
+                self.std_layer = nn.Linear(units, np.prod(self._shape)).to(device)
                 self.std_layer.apply(tools.uniform_weight_init(outscale))
 
     def forward(self, features, dtype=None):
