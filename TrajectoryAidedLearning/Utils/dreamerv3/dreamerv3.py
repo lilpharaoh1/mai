@@ -30,7 +30,7 @@ to_np = lambda x: x.detach().cpu().numpy()
 
 
 class DreamerV3(nn.Module):
-    def __init__(self, obs_space, act_space, name, max_action=1, window_in=1, window_out=1, multiagent=True):
+    def __init__(self, obs_space, act_space, name, max_action=1, window_in=1, window_out=1, multiagent=True, lr=None):
         super(DreamerV3, self).__init__()
         torch.use_deterministic_algorithms(False)
         self.name = name
@@ -55,6 +55,7 @@ class DreamerV3(nn.Module):
 
         config = argparse.Namespace(**defaults)
         config.num_actions = act_space
+        config.model_lr = lr if not lr is None else config.model_lr
         self._config = config
 
         obs_space, act_space = np.array(obs_space).reshape(1, -1), np.array(act_space).reshape(1, -1)
@@ -106,7 +107,8 @@ class DreamerV3(nn.Module):
 
         
         # if self._should_expl(self._step):
-        if np.random.uniform(0, 1) < self._expl_coeff:
+        # if np.random.uniform(0, 1) < self._expl_coeff:
+        if False:
             actor = self._expl_behavior.actor(feat)
             action = actor.sample()
         else:

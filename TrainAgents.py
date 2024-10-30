@@ -195,7 +195,7 @@ class TrainSimulation(TestSimulation):
 
 
 def main():
-    run_file = "dev"
+    run_file = "dreamerv3_tuning"
     # run_file = "Cth_maps"
     # run_file = "Cth_speeds"
     # run_file = "TAL_maps"

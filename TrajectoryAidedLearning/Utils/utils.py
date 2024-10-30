@@ -134,7 +134,7 @@ def setup_run_list(run_file):
             elif run['architecture'] == "DispExt":
                 run['run_name'] = f"{run['architecture']}_DispExt_{run['map_mode']}_DispExt_{run['map_name']}_{max_speed}_{set_n}_{rep}"
             else:
-                run['run_name'] = f"{run['architecture']}_{str_adv(adversaries)}_{run['map_mode']}_{run['reward']}_{run['map_name']}_{max_speed}_{set_n}_{rep}"
+                run['run_name'] = f"{run['architecture']}_{str_adv(adversaries)}_{run['map_mode']}_{run['reward']}_{run['map_name']}_{max_speed}_{set_n}_{int(run['lr'] * 1e5)}_{rep}"
             run['path'] = f"{run['test_name']}/"
 
             run_list.append(Namespace(**run))
