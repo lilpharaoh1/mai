@@ -9,6 +9,8 @@ from TrajectoryAidedLearning.Planners.PurePursuit import PurePursuit
 from TrajectoryAidedLearning.Planners.DisparityExtender import DispExt
 from TrajectoryAidedLearning.Planners.TD3Planners import TD3Trainer, TD3Tester
 from TrajectoryAidedLearning.Planners.SACPlanners import SACTrainer, SACTester
+from TrajectoryAidedLearning.Planners.DreamerV2Planners import DreamerV2Trainer, DreamerV2Tester
+from TrajectoryAidedLearning.Planners.DreamerV3Planners import DreamerV3Trainer, DreamerV3Tester
 
 from TrajectoryAidedLearning.Utils.RewardSignals import *
 from TrajectoryAidedLearning.Utils.StdTrack import StdTrack
@@ -45,6 +47,10 @@ def select_agent(run, conf, architecture, train=True, init=False, ma_info=[0.0, 
         agent = TD3Trainer(run, conf, init=init) if train else TD3Tester(run, conf)
     elif agent_type == "SAC":
         agent = SACTrainer(run, conf, init=init) if train else SACTester(run, conf)
+    elif agent_type == "DreamerV2":
+        agent = DreamerV2Trainer(run, conf) if train else DreamerV2Tester(run, conf)
+    elif agent_type == "DreamerV3":
+        agent = DreamerV3Trainer(run, conf, init=init) if train else DreamerV3Tester(run, conf)
     elif agent_type == "DispExt":
         agent = DispExt(run, conf, ma_info=ma_info)
     else: raise Exception("Unknown agent type: " + agent_type)
@@ -201,6 +207,8 @@ class TrainSimulation(TestSimulation):
 
 
 def main():
+    run_file = "dreamerv3_singleagent"
+    # run_file = "dreamerv3_tuning"
     # run_file = "dev"
     # run_file = "SAC_lr"
     run_file = "SAC_singleagent"

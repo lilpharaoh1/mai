@@ -1,8 +1,8 @@
 
-test_name: "dev"
+test_name: "dreamerv3_singleagent"
 
-num_agents: 3
-target_position: 2
+num_agents: 1
+target_position: 1
 
 architecture: "DreamerV3"
 window_in: 2
@@ -12,7 +12,7 @@ window_out: 1
 # test_mode: "Std"
 map_mode: "Std"
 
-n: 2
+n: 3
 set_n: 1
 
 random_seed: 10000
@@ -28,14 +28,11 @@ reward: "Cth"
 
 max_speed: 5
 
+lr: 0.0001
+
+
 runs:
-  - adversaries: ['PP', 'PP']
-  - adversaries: ['DispExt', 'DispExt']
-
-
-# runs:
-  # - max_speed: 7
-  # - max_speed: 8
+  - adversaries: []
 
 
 

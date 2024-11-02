@@ -1,7 +1,7 @@
 
-test_name: "dev"
+test_name: "dreamerv3_tuning"
 
-num_agents: 3
+num_agents: 2
 target_position: 2
 
 architecture: "DreamerV3"
@@ -18,7 +18,7 @@ set_n: 1
 random_seed: 10000
 
 # n_train_steps: 100000
-n_train_steps: 50000
+n_train_steps: 10000
 # n_train_steps: 700
 n_test_laps: 20
 # n_test_laps: 50
@@ -28,10 +28,12 @@ reward: "Cth"
 
 max_speed: 5
 
-runs:
-  - adversaries: ['PP', 'PP']
-  - adversaries: ['DispExt', 'DispExt']
+adversaries: ['PP']
 
+runs:
+  - lr: 0.00001
+  - lr: 0.0001
+  - lr: 0.001
 
 # runs:
   # - max_speed: 7
