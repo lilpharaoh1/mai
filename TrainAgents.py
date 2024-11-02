@@ -17,8 +17,8 @@ from TrajectoryAidedLearning.Utils.HistoryStructs import VehicleStateHistory
 from TrajectoryAidedLearning.TestSimulation import TestSimulation
 
 # settings
-# SHOW_TRAIN = False
-SHOW_TRAIN = True
+SHOW_TRAIN = False
+# SHOW_TRAIN = True
 VERBOSE = True
 
 NON_TRAINABLE = []
@@ -37,16 +37,16 @@ def select_reward_function(run, conf, std_track):
     return reward_function
 
 # TODO move to utils
-def select_agent(run, conf, architecture, train=True):
+def select_agent(run, conf, architecture, train=True, init=False, ma_info=[0.0, 0.0]):
     agent_type = architecture if architecture is not None else "TD3"
     if agent_type == "PP":
-        agent = PurePursuit(run, conf)
+        agent = PurePursuit(run, conf, init=init, ma_info=ma_info) 
     elif agent_type == "TD3":
-        agent = TD3Trainer(run, conf) if train else TD3Tester(run, conf)
+        agent = TD3Trainer(run, conf, init=init) if train else TD3Tester(run, conf)
     elif agent_type == "SAC":
-        agent = SACTrainer(run, conf) if train else SACTester(run, conf)
+        agent = SACTrainer(run, conf, init=init) if train else SACTester(run, conf)
     elif agent_type == "DispExt":
-        agent = DispExt(run, conf)
+        agent = DispExt(run, conf, ma_info=ma_info)
     else: raise Exception("Unknown agent type: " + agent_type)
 
     return agent
@@ -84,29 +84,29 @@ class TrainSimulation(TestSimulation):
             self.std_track = StdTrack(run.map_name, num_agents=run.num_agents)
             self.reward = select_reward_function(run, self.conf, self.std_track)
 
-            self.target_planner = select_agent(run, self.conf, run.architecture)
-            self.adv_planners = [select_agent(run, self.conf, architecture) for architecture in run.adversaries] 
+            self.target_planner = select_agent(run, self.conf, run.architecture, init=True)
+
+            self.vehicle_state_history = [VehicleStateHistory(run, f"Training/agent_{agent_id}") for agent_id in range(self.num_agents)]
 
             self.completed_laps = 0
+            self.places = []
+            self.progresses = []
 
-            self.run_training()
+            self.run_training(run)
 
             #Test
-            self.target_planner = select_agent(run, self.conf, run.architecture, train=False)
-            self.adv_planners = [select_agent(run, self.conf, architecture, train=False) for architecture in run.adversaries]
+            self.target_planner = select_agent(run, self.conf, run.architecture, train=False, init=False)
 
-            self.vehicle_state_history = VehicleStateHistory(run, "Testing/")
+            self.vehicle_state_history = [VehicleStateHistory(run, f"Testing/agent_{agent_id}") for agent_id in range(self.num_agents)]
 
             self.n_test_laps = run.n_test_laps
 
             self.lap_times = []
             self.completed_laps = 0
+            self.places = []
+            self.progresses = []
 
-            eval_dict = self.run_testing()
-            run_dict = vars(run)
-            run_dict.update(eval_dict)
-
-            save_conf_dict(run_dict, "RunConfig")
+            self.run_testing(run)
 
             conf = vars(self.conf)
             conf['path'] = run.path
@@ -115,7 +115,7 @@ class TrainSimulation(TestSimulation):
 
             self.env.close_rendering()
 
-    def run_training(self):
+    def run_training(self, run):
         assert self.env != None, "No environment created"
         start_time = time.time()
         print(f"Starting Baseline Training: {self.target_planner.name}")
@@ -125,11 +125,21 @@ class TrainSimulation(TestSimulation):
         observations = self.reset_simulation()
         target_obs = observations[0]
 
+        
+        if len(run.adversaries) == 0:
+            ma_info = [0.0, 0.0]
+        else:
+            speed_val, la_val = run.ma_info[2:]
+            speed_c, la_c = np.random.uniform(-speed_val, speed_val), np.random.uniform(-la_val, la_val)
+            ma_info = [speed_c, la_c] 
+        self.adv_planners = [select_agent(run, self.conf, architecture, init=False, ma_info=ma_info) for architecture in run.adversaries] 
+
         for i in range(self.n_train_steps):
             self.prev_obs = observations # used for calculating reward, so only wanst target_obs
             target_action = self.target_planner.plan(target_obs)
             # target_action = np.array([0.0, 1.8]) + np.random.normal(scale=np.array([0.025, 0.2]))
             # target_action = np.array([0.0, 0.0])
+            # print(f"colision_done : {[obs['colision_done'] for obs in observations]}")
             if len(self.adv_planners) > 0:
                 adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
                 # adv_actions = np.array([np.array([0.0, 1.8]) + np.random.normal(scale=np.array([0.025, 0.2])) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
@@ -140,8 +150,7 @@ class TrainSimulation(TestSimulation):
             observations = self.run_step(actions)
             target_obs = observations[0]
 
-            # print("self.prev_obs[0]['position'] :", self.prev_obs[0]['position'])
-            self.target_planner.t_his.add_overtaking(self.prev_obs[0]['position'] - target_obs['position'])
+            self.target_planner.t_his.add_overtaking(target_obs['overtaking'])
 
             if lap_counter > 0: # don't train on first lap.
                 self.target_planner.agent.train()
@@ -164,11 +173,22 @@ class TrainSimulation(TestSimulation):
                 else:
                     print(f"{i}::LapTime Exceeded -> FinalR: {target_obs['reward']:.2f} -> LapTime {target_obs['current_laptime']:.2f} -> TotalReward: {self.target_planner.t_his.rewards[self.target_planner.t_his.ptr-1]:.2f} -> Progress: {target_obs['progress']:.2f}")
 
-                if self.vehicle_state_history: self.vehicle_state_history.save_history(f"train_{lap_counter}", test_map=self.map_name)
+                if self.vehicle_state_history:
+                    for vsh in self.vehicle_state_history: 
+                        vsh.save_history(f"train_{lap_counter}", test_map=self.map_name)
                 lap_counter += 1
 
                 observations = self.reset_simulation()
                 self.target_planner.save_training_data()
+
+                # Reinstatiate adversaries with new context (if necessary)
+                if len(run.adversaries) == 0:
+                    ma_info = [0.0, 0.0]
+                else:
+                    speed_val, la_val = run.ma_info[2:]
+                    speed_c, la_c = np.random.uniform(-speed_val, speed_val), np.random.uniform(-la_val, la_val)
+                    ma_info = [speed_c, la_c] 
+                self.adv_planners = [select_agent(run, self.conf, architecture, init=False, ma_info=ma_info) for architecture in run.adversaries] 
 
 
         train_time = time.time() - start_time
@@ -181,7 +201,11 @@ class TrainSimulation(TestSimulation):
 
 
 def main():
-    run_file = "dev"
+    # run_file = "dev"
+    # run_file = "SAC_lr"
+    run_file = "SAC_singleagent"
+    # run_file = "SAC_multiagent_stationary"
+    # run_file = "SAC_multiagent_nonstationary"
     # run_file = "Cth_maps"
     # run_file = "Cth_speeds"
     # run_file = "TAL_maps"

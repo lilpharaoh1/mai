@@ -1,0 +1,44 @@
+test_name: "SAC_gamma"
+
+num_agents: 2
+target_position: 2
+
+architecture: "SAC"
+window_in: 2
+window_out: 1
+
+map_mode: "Std"
+
+n: 2
+set_n: 1
+
+random_seed: 10000
+
+n_train_steps: 50000
+n_test_laps: 50
+
+map_name: "f1_esp"
+reward: "Cth"
+
+max_speed: 5
+
+adversaries: ['PP'] 
+
+lr: 0.001
+
+runs:
+  - gamma: 0.99
+  - gamma: 0.85
+  - gamma: 0.7
+  - gamma: 0.5
+
+
+# runs:
+  # - max_speed: 7
+  # - max_speed: 8
+
+
+
+
+
+

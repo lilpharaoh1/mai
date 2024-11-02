@@ -129,7 +129,7 @@ class MapData:
 
 
 def main():
-    map_name = "f1_gbr"
+    map_name = "f1_esp"
 
     map_data = MapData(map_name)
     map_data.plot_map_data()

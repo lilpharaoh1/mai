@@ -9,11 +9,12 @@ from TrajectoryAidedLearning.Utils.utils import init_file_struct
 from matplotlib import pyplot as plt
 
 class SACTrainer: 
-    def __init__(self, run, conf):
+    def __init__(self, run, conf, init=False):
         self.run, self.conf = run, conf
         self.name = run.run_name
         self.path = conf.vehicle_path + run.path + run.run_name 
-        init_file_struct(self.path)
+        if init:
+            init_file_struct(self.path)
 
         self.v_min_plan =  conf.v_min_plan
 
@@ -24,7 +25,7 @@ class SACTrainer:
 
         self.transform = FastTransform(run, conf)
 
-        self.agent = SAC(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out)
+        self.agent = SAC(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out, lr=run.lr, gamma=run.gamma)
         self.agent.create_agent(conf.h_size)
 
         self.t_his = TrainHistory(run, conf)
@@ -118,12 +119,13 @@ class SACTester:
         self.v_min_plan = conf.v_min_plan
         self.path = conf.vehicle_path + run.path + run.run_name 
 
-        self.agent = torch.load(self.path + '/' + run.run_name + "_actor.pth")
-
         self.transform = FastTransform(run, conf)
         self.window_in = run.window_in
         self.n_beams = conf.n_beams
         self.scan_buffer = np.zeros((self.window_in, self.n_beams))
+
+        self.agent = SAC(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out, lr=run.lr, gamma=run.gamma)
+        self.agent.load(self.path)
 
         print(f"Agent loaded: {run.run_name}")
 
@@ -135,22 +137,24 @@ class SACTester:
         nn_obs = self.transform.transform_obs(obs)
 
 
-        if self.scan_buffer.all() ==0: # first reading
-            for i in range(self.window_in):
-                self.scan_buffer[i, :] = nn_obs 
-        else:
-            self.scan_buffer = np.roll(self.scan_buffer, 1, axis=0)
-            self.scan_buffer[0, :] = nn_obs
+        # if self.scan_buffer.all() ==0: # first reading
+        #     for i in range(self.window_in):
+        #         self.scan_buffer[i, :] = nn_obs 
+        # else:
+        #     self.scan_buffer = np.roll(self.scan_buffer, 1, axis=0)
+        #     self.scan_buffer[0, :] = nn_obs
 
-        nn_obs = np.reshape(self.scan_buffer, (self.window_in * self.n_beams))
+        # nn_obs = np.reshape(self.scan_buffer, (self.window_in * self.n_beams))
         nn_obs = torch.FloatTensor(nn_obs.reshape(1, -1))
-        nn_action, _, _ = self.agent.sample(nn_obs)
-        nn_action = nn_action.data.numpy().flatten()
-        self.nn_act = nn_action
+        nn_act = self.agent.act(nn_obs)
+        
+        if np.isnan(nn_act).any():
+            print(f"NAN in act: {n_obs}")
+            raise Exception("Unknown NAN in act")
 
-        self.action = self.transform.transform_action(nn_action)
+        action = self.transform.transform_action(nn_act)
 
-        return self.action 
+        return action 
 
     def lap_complete(self):
         pass

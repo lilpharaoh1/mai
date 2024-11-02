@@ -1,4 +1,5 @@
-from TrajectoryAidedLearning.RewardSignals.RewardUtils import *
+from TrajectoryAidedLearning.Utils.RewardSignals import *
+from TrajectoryAidedLearning.Utils.RewardUtils import *
 from matplotlib import pyplot as plt
 import numpy as np
 

@@ -288,14 +288,16 @@ def get_actuation(pose_theta, lookahead_point, position, lookahead_distance, whe
 
 
 class PurePursuit:
-    def __init__(self, run, conf, init=True):
+    def __init__(self, run, conf, init=False, ma_info=[0.0, 0.0]):
         self.name = run.run_name
         path = os.getcwd() + f"/Data/Vehicles/" + run.path  + self.name
-        if init: 
+        if init:
             init_file_struct(path)
-            self.mode = "racing"
-        else:
-            self.mode = "training"
+        # if init: 
+        #     init_file_struct(path)
+        #     self.mode = "racing"
+        # else:
+        #     self.mode = "training"
             
         self.conf = conf
         self.run = run
@@ -303,9 +305,13 @@ class PurePursuit:
         self.raceline = True # run.raceline
         self.speed_mode = 'raceline'# run.pp_speed_mode
         self.max_speed = run.max_speed
+        self.slow_down = 0.7
         self.trajectory = Trajectory(run.map_name, self.raceline)
+        self.speed_c, self.la_c = ma_info
 
-        self.lookahead = conf.lookahead 
+        print("ma_info :", ma_info)
+
+        self.lookahead = conf.lookahead * (1 + self.la_c)
         self.v_min_plan = conf.v_min_plan
         self.wheelbase =  conf.l_f + conf.l_r
         self.max_steer = conf.max_steer
@@ -314,10 +320,11 @@ class PurePursuit:
         state = obs['state']
         position = state[0:2]
         theta = state[2]
-        if self.mode == "training":
-            lookahead = 1 + 0.6 * state[3] / 8 # original....
-        elif self.mode == "racing":
-            lookahead = 1 + (self.max_speed/10) * state[3] /  self.max_speed
+        # if self.mode == "training":
+        #     lookahead = 1 + 0.6 * state[3] / 8 # original....
+        # elif self.mode == "racing":
+        #     lookahead = 1 + (self.max_speed/10) * state[3] /  self.max_speed
+        lookahead = 1 + (self.max_speed/10) * state[3] /  self.max_speed
         lookahead_point = self.trajectory.get_current_waypoint(position, lookahead)
 
         if state[3] < self.v_min_plan:
@@ -335,6 +342,8 @@ class PurePursuit:
             raise Exception(f"Invalid speed mode: {self.speed_mode}")
             
         speed = min(speed, self.max_speed) # cap the speed
+        speed *= (self.slow_down)
+        speed *= (1 + self.speed_c)
 
         action = np.array([steering_angle, speed])
 
