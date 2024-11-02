@@ -1,0 +1,41 @@
+
+test_name: "dreamerv3_singleagent"
+
+num_agents: 1
+target_position: 1
+
+architecture: "DreamerV3"
+window_in: 2
+window_out: 1
+
+# train_mode: "Std"
+# test_mode: "Std"
+map_mode: "Std"
+
+n: 3
+set_n: 1
+
+random_seed: 10000
+
+# n_train_steps: 100000
+n_train_steps: 50000
+# n_train_steps: 700
+n_test_laps: 20
+# n_test_laps: 50
+
+map_name: "f1_esp"
+reward: "Cth"
+
+max_speed: 5
+
+lr: 0.0001
+
+
+runs:
+  - adversaries: []
+
+
+
+
+
+

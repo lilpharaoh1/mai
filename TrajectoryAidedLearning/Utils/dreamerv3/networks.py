@@ -220,7 +220,6 @@ class RSSM(nn.Module):
             # (batch, stoch, discrete_num) -> (batch, stoch * discrete_num)
             prev_stoch = prev_stoch.reshape(shape)
         # (batch, stoch * discrete_num) -> (batch, stoch * discrete_num + action)
-        # print("in img_step -> prev_stoch, prev_action :", prev_stoch.shape, prev_action.shape)
         x = torch.cat([prev_stoch, prev_action.reshape(1, -1) if len(prev_action.shape) == 1 else prev_action], -1) # EMRAN check which one should be reshaped
         # (batch, stoch * discrete_num + action, embed) -> (batch, hidden)
         x = self._img_in_layers(x)

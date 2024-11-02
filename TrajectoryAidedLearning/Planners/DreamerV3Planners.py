@@ -26,7 +26,7 @@ class DreamerV3Trainer:
 
         self.transform = FastTransform(run, conf)
 
-        self.agent = DreamerV3(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out)
+        self.agent = DreamerV3(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out, lr=run.lr)
         # self.agent.create_agent()
 
         self.t_his = TrainHistory(run, conf)
@@ -177,8 +177,7 @@ class DreamerV3Tester:
 
         self.nn_state = nn_obs # after to prevent call before check for v_min_plan
         self.nn_act, self.nn_rssm = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, is_first=self.nn_act is None)
-        # self.nn_act,  = self.agent(nn_obs).data.numpy().flatten()
-        self.nn_act = self.nn_act.squeeze(0)
+        self.nn_act = self.nn_act.cpu().squeeze(0)
 
         if np.isnan(self.nn_act).any():
             print(f"NAN in act: {nn_state}")
