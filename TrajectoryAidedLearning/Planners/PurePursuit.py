@@ -288,7 +288,7 @@ def get_actuation(pose_theta, lookahead_point, position, lookahead_distance, whe
 
 
 class PurePursuit:
-    def __init__(self, run, conf, init=False):
+    def __init__(self, run, conf, init=False, ma_info=[0.0, 0.0]):
         self.name = run.run_name
         path = os.getcwd() + f"/Data/Vehicles/" + run.path  + self.name
         if init:
@@ -305,9 +305,13 @@ class PurePursuit:
         self.raceline = True # run.raceline
         self.speed_mode = 'raceline'# run.pp_speed_mode
         self.max_speed = run.max_speed
+        self.slow_down = 0.7
         self.trajectory = Trajectory(run.map_name, self.raceline)
+        self.speed_c, self.la_c = ma_info
 
-        self.lookahead = conf.lookahead 
+        print("ma_info :", ma_info)
+
+        self.lookahead = conf.lookahead * (1 + self.la_c)
         self.v_min_plan = conf.v_min_plan
         self.wheelbase =  conf.l_f + conf.l_r
         self.max_steer = conf.max_steer
@@ -338,6 +342,8 @@ class PurePursuit:
             raise Exception(f"Invalid speed mode: {self.speed_mode}")
             
         speed = min(speed, self.max_speed) # cap the speed
+        speed *= (self.slow_down)
+        speed *= (1 + self.speed_c)
 
         action = np.array([steering_angle, speed])
 

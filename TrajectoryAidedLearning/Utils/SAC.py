@@ -15,7 +15,7 @@ EPSILON = 1e-6
 
 # hyper parameters
 BATCH_SIZE = 100
-GAMMA = 0.99
+GAMMA = 0.85 # 0.99
 tau = 0.005
 ALPHA = 0.2
 
@@ -176,7 +176,7 @@ class DeterministicPolicy(nn.Module):
 
 
 class SAC(object):
-    def __init__(self, state_dim, action_dim, name, max_action=1, window_in=1, window_out=1, policy_type="Gaussian", entropy_tuning=True, lr=None):
+    def __init__(self, state_dim, action_dim, name, max_action=1, window_in=1, window_out=1, policy_type="Gaussian", entropy_tuning=True, lr=None, gamma=None):
         self.name = name
         self.policy_type=policy_type # From pytorch-soft-actor-critic
         self.automatic_entropy_tuning  = entropy_tuning # From pytorch-soft-actor-critic 
@@ -186,6 +186,7 @@ class SAC(object):
         self.window_in = window_in
         self.window_out = window_out
         self.lr = 1e-3 if lr is None else lr
+        self.gamma = GAMMA if gamma is None else gamma
         self.state_buff = None
 
         self.actor = None
@@ -283,7 +284,7 @@ class SAC(object):
                 # Compute the target Q value
                 target_Q1, target_Q2 = self.critic_target(adpt_next_state, next_action)
                 target_Q = torch.min(target_Q1, target_Q2) - self.alpha * next_state_log_pi
-                target_Q = reward + (done * GAMMA * target_Q).detach()
+                target_Q = reward + (done * self.gamma * target_Q).detach()
 
             # Get current Q estimates
             current_Q1, current_Q2 = self.critic(state, action[:, -self.act_dim:])

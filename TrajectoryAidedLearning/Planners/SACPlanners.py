@@ -25,7 +25,7 @@ class SACTrainer:
 
         self.transform = FastTransform(run, conf)
 
-        self.agent = SAC(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out, lr=run.lr)
+        self.agent = SAC(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out, lr=run.lr, gamma=run.gamma)
         self.agent.create_agent(conf.h_size)
 
         self.t_his = TrainHistory(run, conf)
@@ -124,7 +124,7 @@ class SACTester:
         self.n_beams = conf.n_beams
         self.scan_buffer = np.zeros((self.window_in, self.n_beams))
 
-        self.agent = SAC(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out, lr=run.lr)
+        self.agent = SAC(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out, lr=run.lr, gamma=run.gamma)
         self.agent.load(self.path)
 
         print(f"Agent loaded: {run.run_name}")

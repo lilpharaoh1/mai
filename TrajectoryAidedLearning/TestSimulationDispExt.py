@@ -1,7 +1,6 @@
 from TrajectoryAidedLearning.f110_gym.f110_env import F110Env
 from TrajectoryAidedLearning.Utils.utils import *
 from TrajectoryAidedLearning.Utils.HistoryStructs import VehicleStateHistory
-from TrainAgents import select_agent, select_reward_function
 
 from TrajectoryAidedLearning.Planners.PurePursuit import PurePursuit
 from TrajectoryAidedLearning.Planners.TD3Planners import TD3Tester
@@ -72,32 +71,33 @@ class TestSimulation():
             self.num_agents = run.num_agents
             self.target_position = run.target_position
 
-            self.target_planner = select_agent(run, self.conf, run.architecture, train=False, init=False)
-            self.adv_planners = [select_agent(run, self.conf, architecture, train=False, init=False) for architecture in run.adversaries]
+            if run.architecture == "PP": 
+                planner = PurePursuit(self.conf, run)
+            elif run.architecture == "fast": 
+                planner = AgentTester(run, self.conf)
+            else: raise AssertionError(f"Planner {run.planner} not found")
 
-            self.vehicle_state_history = [VehicleStateHistory(run, f"Testing/agent_{agent_id}") for agent_id in range(self.num_agents)]
+            if run.map_mode == "Std": self.target_planner = planner
+            else: raise AssertionError(f"Test mode {run.map_mode} not found")
+
+            self.vehicle_state_history = [VehicleStateHistory(run, f"Testing/agent_{agent_id}") for agent_id in range(run.num_agents)]
+
 
             self.n_test_laps = run.n_test_laps
-
             self.lap_times = []
-            self.completed_laps = 0
             self.places = []
             self.progresses = []
+            self.completed_laps = 0
 
             eval_dict = self.run_testing()
             run_dict = vars(run)
             run_dict.update(eval_dict)
 
-            save_conf_dict(run_dict, "RunConfig")
-
-            conf = vars(self.conf)
-            conf['path'] = run.path
-            conf['run_name'] = run.run_name
-            save_conf_dict(conf, "TrainingConfig")
+            save_conf_dict(run_dict)
 
             self.env.close_rendering()
 
-    def run_testing(self):
+    def run_testing(self, run):
         assert self.env != None, "No environment created"
         start_time = time.time()
 
@@ -172,7 +172,10 @@ class TestSimulation():
         eval_dict['avg_progress'] = float(avg_progress)
         eval_dict['progress_std_dev'] = float(progress_std_dev)
 
-        return eval_dict
+        run_dict = vars(run)
+        run_dict.update(eval_dict)
+
+        save_conf_dict(run_dict, "RunConfig")
 
     # this is an overide
     def run_step(self, actions):
@@ -267,6 +270,12 @@ class TestSimulation():
         # Set the position values for each agent
         observations = self.score_positions(observations)
 
+        for agent_id in range(self.num_agents):
+            observations[agent_id]['overtaking'] = self.prev_obs[agent_id]['position'] - observations[agent_id]['position'] \
+                                                        if not self.prev_obs is None else 0
+            observations[agent_id]['reward'] += observations[agent_id]['overtaking']
+
+
         # if self.vehicle_state_history:
             # for agent_id in range(self.num_agents):
                 # self.vehicle_state_history
@@ -322,7 +331,7 @@ class TestSimulation():
 
 def main():
     # run_file = "PP_speeds"
-    run_file = "dev"
+    run_file = "PP_maps8"
     # run_file = "Eval_RewardsSlow"
     
     

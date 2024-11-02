@@ -125,6 +125,7 @@ def setup_run_list(run_file):
             assert run['target_position'] > 0 and run['target_position'] <= run['num_agents'], "Invalid target_position in runfile"
             # only have to add what isn't already there
             adversaries = [adv for adv in run["adversaries"]] if not run["adversaries"] is None else []
+            ma_info = [info for info in run["ma_info"]] if not run["ma_info"] is None else [0.0, 0.0] 
             run["adversaries"] = adversaries
             set_n = run['set_n']
             max_speed = run['max_speed']
@@ -134,7 +135,7 @@ def setup_run_list(run_file):
             elif run['architecture'] == "DispExt":
                 run['run_name'] = f"{run['architecture']}_DispExt_{run['map_mode']}_DispExt_{run['map_name']}_{max_speed}_{set_n}_{rep}"
             else:
-                run['run_name'] = f"{run['architecture']}_{str_adv(adversaries)}_{run['map_mode']}_{run['reward']}_{run['map_name']}_{max_speed}_{set_n}_{int(run['lr'] * 1e4)}_{rep}"
+                run['run_name'] = f"{run['architecture']}_{str_adv(adversaries)}_{str_ma(run['ma_info'])}_{run['map_mode']}_{run['reward']}_{run['map_name']}_{max_speed}_{int(run['lr'] * 1e4)}_{int(run['gamma'] * 1e3)}_{rep}"
             run['path'] = f"{run['test_name']}/"
 
             run_list.append(Namespace(**run))
@@ -151,6 +152,12 @@ def str_adv(adversaries):
         out += str(ARCH_MAP[adv])
     return out
 
+def str_ma(ma_info):
+    ma_info = [int(info * 10) for info in ma_info]
+    out = ""
+    for info in ma_info:
+        out += str(info)
+    return out
 
 @njit(cache=True)
 def calculate_speed(delta, f_s=0.8, max_v=7):

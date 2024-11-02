@@ -19,9 +19,32 @@ class StdTrack:
 
     def load_centerline(self):
         # filename = 'map_data/' + self.map_name + '_std.csv'
-        filename = 'maps/' + self.map_name + '_centerline.csv'
+        centerline_filename = 'maps/' + self.map_name + '_centerline.csv'
+        raceline_filename = 'maps/' + self.map_name + '_raceline.csv'
         xs, ys, w_rs, w_ls = [0], [0], [], []
-        with open(filename, 'r') as file:
+        # with open(raceline_filename, 'r') as file:
+        #     csvFile = csv.reader(file)
+        #     for i, lines in enumerate(csvFile):
+        #         if i ==0:
+        #             continue
+        #         xs.append(float(lines[1]))
+        #         ys.append(float(lines[2]))
+        #         # w_rs.append(float(lines[2]))
+        #         # w_ls.append(float(lines[3]))
+        
+        # # Not used?
+        # with open(centerline_filename, 'r') as file:
+        #     csvFile = csv.reader(file)
+
+        #     for i, lines in enumerate(csvFile):
+        #         if i ==0:
+        #             continue
+        #         # xs.append(float(lines[0]))
+        #         # ys.append(float(lines[1]))
+        #         w_rs.append(float(lines[2]))
+        #         w_ls.append(float(lines[3]))
+        
+        with open(centerline_filename, 'r') as file:
             csvFile = csv.reader(file)
 
             for i, lines in enumerate(csvFile):
@@ -31,6 +54,7 @@ class StdTrack:
                 ys.append(float(lines[1]))
                 w_rs.append(float(lines[2]))
                 w_ls.append(float(lines[3]))
+
         xs[-1] = 0
         ys[-1] = 0
         self.xs = np.array(xs)[:, None]
