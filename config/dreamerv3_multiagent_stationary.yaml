@@ -1,9 +1,9 @@
-test_name: "SAC_multiagent_nonstationary"
+test_name: "dreamerv3_multiagent_stationary"
 
 num_agents: 2
 target_position: 2
 
-architecture: "SAC"
+architecture: "DreamerV3"
 window_in: 2
 window_out: 1
 
@@ -13,7 +13,7 @@ n: 3
 set_n: 1
 
 random_seed: 10000
-noise_std: 0.0 
+noise_std: 0.0
 
 n_train_steps: 50000
 n_test_laps: 50
@@ -23,9 +23,9 @@ reward: "Cth"
 
 max_speed: 5
 
-lr: 0.001
+lr: 0.0001
 gamma: 0.85
-ma_info: [0.1, 0.1, 0.3, 0.3]
+ma_info: [0.0, 0.0, 0.0, 0.0]
 
 runs:
   - adversaries: ['PP']

@@ -4,38 +4,34 @@ test_name: "dev"
 num_agents: 3
 target_position: 2
 
-architecture: "DreamerV3"
+architecture: "SAC"
 window_in: 2
 window_out: 1
 
-# train_mode: "Std"
-# test_mode: "Std"
 map_mode: "Std"
 
 n: 2
 set_n: 1
 
 random_seed: 10000
+noise_std: 0.0
 
-# n_train_steps: 100000
-n_train_steps: 50000
-# n_train_steps: 700
+n_train_steps: 10000
 n_test_laps: 20
-# n_test_laps: 50
 
 map_name: "f1_esp"
 reward: "Cth"
 
 max_speed: 5
 
+lr: 0.001
+gamma: 0.001
+ma_info: [0.0, 0.0, 0.0, 0.0]
+
+
 runs:
   - adversaries: ['PP', 'PP']
   - adversaries: ['DispExt', 'DispExt']
-
-
-# runs:
-  # - max_speed: 7
-  # - max_speed: 8
 
 
 
