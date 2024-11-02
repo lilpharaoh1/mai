@@ -3,9 +3,9 @@ from TrajectoryAidedLearning.Utils.utils import *
 from TrajectoryAidedLearning.Utils.HistoryStructs import VehicleStateHistory
 
 from TrajectoryAidedLearning.Planners.PurePursuit import PurePursuit
-from TrajectoryAidedLearning.Planners.DisparityExtender import DispExt
-from TrajectoryAidedLearning.Planners.TD3Planners import TD3Trainer, TD3Tester
-from TrajectoryAidedLearning.Planners.SACPlanners import SACTrainer, SACTester
+from TrajectoryAidedLearning.Planners.TD3Planners import TD3Tester
+
+
 
 import torch
 import numpy as np
@@ -14,41 +14,12 @@ import time
 
 # settings
 SHOW_TRAIN = False
-# SHOW_TEST = False
-SHOW_TEST = True
+SHOW_TEST = False
+# SHOW_TEST = True
 VERBOSE = True
 LOGGING = True
 GRID_X_COEFF = 2.0
 GRID_Y_COEFF = 0.6
-
-# TODO SOOOOOOO hacky fix
-def select_reward_function(run, conf, std_track):
-    reward = run.reward
-    if reward == "Progress":
-        reward_function = ProgressReward(std_track)
-    elif reward == "Cth": 
-        reward_function = CrossTrackHeadReward(std_track, conf)
-    elif reward == "TAL":
-        reward_function = TALearningReward(conf, run)
-    else: raise Exception("Unknown reward function: " + reward)
-        
-    return reward_function
-
-# TODO SOOOOOOO hacky fix
-def select_agent(run, conf, architecture, train=True, init=False, ma_info=[0.0, 0.0]):
-    agent_type = architecture if architecture is not None else "TD3"
-    if agent_type == "PP":
-        agent = PurePursuit(run, conf, init=init, ma_info=ma_info) 
-    elif agent_type == "TD3":
-        agent = TD3Trainer(run, conf, init=init) if train else TD3Tester(run, conf)
-    elif agent_type == "SAC":
-        agent = SACTrainer(run, conf, init=init) if train else SACTester(run, conf)
-    elif agent_type == "DispExt":
-        agent = DispExt(run, conf, ma_info=ma_info)
-    else: raise Exception("Unknown agent type: " + agent_type)
-
-    return agent
-
 
 class TestSimulation():
     def __init__(self, run_file: str):
@@ -113,6 +84,10 @@ class TestSimulation():
 
 
             self.n_test_laps = run.n_test_laps
+            self.lap_times = []
+            self.places = []
+            self.progresses = []
+            self.completed_laps = 0
 
             eval_dict = self.run_testing()
             run_dict = vars(run)
@@ -123,104 +98,84 @@ class TestSimulation():
             self.env.close_rendering()
 
     def run_testing(self, run):
-        if len(run.adversaries) == 0:
-            ma_runlist = [[0.0, 0.0]]
-        else:
-            speed_val, la_val = run.ma_info[2:]
-            speed_arange, la_arange = np.round(np.arange(-speed_val, speed_val + 1e-6, 0.05), 2), np.round(np.arange(-speed_val, speed_val + 1e-6, 0.05), 2)
-            speed_grid, la_grid = np.meshgrid(speed_arange, la_arange, indexing='ij')
-            ma_runlist = np.stack([speed_grid.ravel(), la_grid.ravel()], axis=1)
+        assert self.env != None, "No environment created"
+        start_time = time.time()
 
-        for ma_idx, ma_info in enumerate(ma_runlist):
-            self.adv_planners = [select_agent(run, self.conf, architecture, train=False, init=False, ma_info=ma_info) for architecture in run.adversaries]
-            assert self.env != None, "No environment created"
-            start_time = time.time()
+        for i in range(self.n_test_laps):
+            observations = self.reset_simulation()
+            target_obs = observations[0]
 
-            self.lap_times = []
-            self.places = []
-            self.progresses = []
-            self.completed_laps = 0
-
-            for i in range(self.n_test_laps):
-                observations = self.reset_simulation()
+            while not target_obs['colision_done'] and not target_obs['lap_done'] and not target_obs['current_laptime'] > self.conf.max_laptime:
+                self.prev_obs = observations
+                target_action = self.target_planner.plan(observations[0])
+                if len(self.adv_planners) > 0:
+                    adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
+                    actions = np.concatenate((target_action.reshape(1, -1), adv_actions), axis=0)
+                else:
+                    actions = target_action.reshape(1, -1)
+                observations = self.run_step(actions)
                 target_obs = observations[0]
 
-                while not target_obs['colision_done'] and not target_obs['lap_done'] and not target_obs['current_laptime'] > self.conf.max_laptime:
-                    self.prev_obs = observations
-                    target_action = self.target_planner.plan(observations[0])
-                    if len(self.adv_planners) > 0:
-                        adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
-                        actions = np.concatenate((target_action.reshape(1, -1), adv_actions), axis=0)
-                    else:
-                        actions = target_action.reshape(1, -1)
-                    observations = self.run_step(actions)
-                    target_obs = observations[0]
+                if SHOW_TEST: self.env.render('human_fast')
 
-                    if SHOW_TEST: self.env.render('human_fast')
+            self.target_planner.lap_complete()
+            self.progresses.append(target_obs['progress'])
+            if target_obs['lap_done']:
+                if VERBOSE: print(f"Lap {i} Complete in time: {target_obs['current_laptime']}")
+                self.lap_times.append(target_obs['current_laptime'])
+                self.places.append(target_obs['position'])
 
-                self.target_planner.lap_complete()
-                self.progresses.append(target_obs['progress'])
-                if target_obs['lap_done']:
-                    if VERBOSE: print(f"Lap {i} Complete in time: {target_obs['current_laptime']}")
-                    self.lap_times.append(target_obs['current_laptime'])
-                    self.places.append(target_obs['position'])
+                self.completed_laps += 1
 
-                    self.completed_laps += 1
+            if target_obs['colision_done']:
+                if VERBOSE: print(f"Lap {i} Crashed in time: {target_obs['current_laptime']}")
+            
+            if target_obs['current_laptime'] > self.conf.max_laptime:
+                if VERBOSE: print(f"Lap {i} LapTimeExceeded in time: {target_obs['current_laptime']}")
 
-                if target_obs['colision_done']:
-                    if VERBOSE: print(f"Lap {i} Crashed in time: {target_obs['current_laptime']}")
-                
-                if target_obs['current_laptime'] > self.conf.max_laptime:
-                    if VERBOSE: print(f"Lap {i} LapTimeExceeded in time: {target_obs['current_laptime']}")
-
-                if self.vehicle_state_history: 
-                    for vsh in self.vehicle_state_history:
-                        vsh.save_history(i, test_map=self.map_name)
-                        # vsh.save_history(f"test_{i}", test_map=self.map_name)
+            if self.vehicle_state_history: 
+                for vsh in self.vehicle_state_history:
+                    vsh.save_history(i, test_map=self.map_name)
+                    # vsh.save_history(f"test_{i}", test_map=self.map_name)
 
 
-            print(f"Tests are finished in: {time.time() - start_time}")
+        print(f"Tests are finished in: {time.time() - start_time}")
 
-            success_rate = (self.completed_laps / (self.n_test_laps) * 100)
-            if len(self.lap_times) > 0:
-                avg_times, times_std_dev = np.mean(self.lap_times), np.std(self.lap_times)
-            else:
-                avg_times, times_std_dev = 0, 0
+        success_rate = (self.completed_laps / (self.n_test_laps) * 100)
+        if len(self.lap_times) > 0:
+            avg_times, times_std_dev = np.mean(self.lap_times), np.std(self.lap_times)
+        else:
+            avg_times, times_std_dev = 0, 0
 
-            if len(self.places) > 0:
-                avg_place, place_std_dev = np.mean(self.places), np.std(self.places)
-            else:
-                avg_place, place_std_dev = 0, 0
+        if len(self.places) > 0:
+            avg_place, place_std_dev = np.mean(self.places), np.std(self.places)
+        else:
+            avg_place, place_std_dev = 0, 0
 
-            if len(self.progresses) > 0:
-                avg_progress, progress_std_dev = np.mean(self.progresses), np.std(self.progresses)
-            else:
-                avg_progress, progress_std_dev = 0, 0
+        if len(self.progresses) > 0:
+            avg_progress, progress_std_dev = np.mean(self.progresses), np.std(self.progresses)
+        else:
+            avg_progress, progress_std_dev = 0, 0
 
-            print(f"Crashes: {self.n_test_laps - self.completed_laps} VS Completes {self.completed_laps} --> {success_rate:.2f} %")
-            print(f"Lap times Avg: {avg_times} --> Std: {times_std_dev}")
-            print(f"Place Avg: {avg_place} --> Std: {place_std_dev}")
-            print(f"Progress Avg: {avg_progress} --> Std: {progress_std_dev}")
+        print(f"Crashes: {self.n_test_laps - self.completed_laps} VS Completes {self.completed_laps} --> {success_rate:.2f} %")
+        print(f"Lap times Avg: {avg_times} --> Std: {times_std_dev}")
+        print(f"Place Avg: {avg_place} --> Std: {place_std_dev}")
+        print(f"Progress Avg: {avg_progress} --> Std: {progress_std_dev}")
 
 
-            eval_dict = {}
-            eval_dict['success_rate'] = float(success_rate)
-            eval_dict['avg_times'] = float(avg_times)
-            eval_dict['times_std_dev'] = float(times_std_dev)
-            eval_dict['avg_place'] = float(avg_place)
-            eval_dict['place_std_dev'] = float(place_std_dev)
-            eval_dict['avg_progress'] = float(avg_progress)
-            eval_dict['progress_std_dev'] = float(progress_std_dev)
+        eval_dict = {}
+        eval_dict['success_rate'] = float(success_rate)
+        eval_dict['avg_times'] = float(avg_times)
+        eval_dict['times_std_dev'] = float(times_std_dev)
+        eval_dict['avg_place'] = float(avg_place)
+        eval_dict['place_std_dev'] = float(place_std_dev)
+        eval_dict['avg_progress'] = float(avg_progress)
+        eval_dict['progress_std_dev'] = float(progress_std_dev)
 
-            run_dict = vars(run)
-            run_dict.update(eval_dict)
+        run_dict = vars(run)
+        run_dict.update(eval_dict)
 
-            save_conf_dict(run_dict, f"RunConfig_{ma_idx}")
-
-            self.lap_times = []
-            self.places = []
-            self.progresses = []
-            self.completed_laps = 0
+        save_conf_dict(run_dict, "RunConfig")
 
     # this is an overide
     def run_step(self, actions):
