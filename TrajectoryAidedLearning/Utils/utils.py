@@ -153,7 +153,7 @@ def str_adv(adversaries):
     return out
 
 def str_ma(ma_info):
-    ma_info = [int(info * 10) for info in ma_info]
+    ma_info = [int(info * 100) for info in ma_info]
     out = ""
     for info in ma_info:
         out += str(info)

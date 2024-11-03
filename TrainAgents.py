@@ -191,7 +191,7 @@ class TrainSimulation(TestSimulation):
                 if len(run.adversaries) == 0:
                     ma_info = [0.0, 0.0]
                 else:
-                    speed_val, la_val = run.ma_info[2:]
+                    speed_val, la_val = run.ma_info[:2]
                     speed_c, la_c = np.random.uniform(-speed_val, speed_val), np.random.uniform(-la_val, la_val)
                     ma_info = [speed_c, la_c] 
                 self.adv_planners = [select_agent(run, self.conf, architecture, init=False, ma_info=ma_info) for architecture in run.adversaries] 
@@ -207,20 +207,16 @@ class TrainSimulation(TestSimulation):
 
 
 def main():
-    # run_file = "dreamerv3_singleagent"
-    # run_file = "dreamerv3_tuning"
     # run_file = "dev"
     # run_file = "SAC_lr"
-    run_file = "SAC_singleagent"
+    # run_file = "SAC_gamma"
+    # run_file = "SAC_singleagent"
     # run_file = "SAC_multiagent_stationary"
-    # run_file = "SAC_multiagent_nonstationary"
-    # run_file = "Cth_maps"
-    # run_file = "Cth_speeds"
-    # run_file = "TAL_maps"
-    # run_file = "TAL_speeds"
-    # run_file = "Cth_speedMaps"
-    # run_file = "CthVsProgress"
-
+    run_file = "SAC_multiagent_nonstationary"
+    # run_file = "dreamerv3_lr"
+    # run_file = "dreamerv3_singleagent"
+    # run_file = "dreamerv3_multiagent_stationary"
+    # run_file = "dreamerv3_multiagent_nonstationary"
     
     sim = TrainSimulation(run_file)
     sim.run_training_evaluation()

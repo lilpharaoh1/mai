@@ -127,7 +127,7 @@ class TestSimulation():
             ma_runlist = [[0.0, 0.0]]
         else:
             speed_val, la_val = run.ma_info[2:]
-            speed_arange, la_arange = np.round(np.arange(-speed_val, speed_val + 1e-6, 0.05), 2), np.round(np.arange(-speed_val, speed_val + 1e-6, 0.05), 2)
+            speed_arange, la_arange = np.round(np.arange(-speed_val, speed_val + 1e-6, 0.1), 2), np.round(np.arange(-speed_val, speed_val + 1e-6, 0.1), 2)
             speed_grid, la_grid = np.meshgrid(speed_arange, la_arange, indexing='ij')
             ma_runlist = np.stack([speed_grid.ravel(), la_grid.ravel()], axis=1)
 
