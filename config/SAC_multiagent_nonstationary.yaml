@@ -15,13 +15,13 @@ set_n: 1
 random_seed: 10000
 noise_std: 0.0 
 
-n_train_steps: 1000 # 50000
-n_test_laps: 10 # 50
+n_train_steps: 100000
+n_test_laps: 50
 
 map_name: "f1_esp"
 reward: "Cth"
 
-max_speed: 5
+max_speed: 6
 
 lr: 0.001
 gamma: 0.85
