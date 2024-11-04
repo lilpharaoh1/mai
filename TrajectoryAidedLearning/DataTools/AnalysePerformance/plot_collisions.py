@@ -92,19 +92,19 @@ class AnalyseTestLapData:
         self.std_track = StdTrack(self.map_name)
         self.racing_track = RacingTrack(self.map_name)
 
-        
-    
-            
+                    
         runs_folders = glob.glob(f"{folder}" + "Testing/*/")
         for j, run_folder in enumerate(runs_folders):
             print(f"{j}) {run_folder}")
             if not os.path.exists(run_folder + "TestingCollisions/"): 
                 os.mkdir(run_folder + "TestingCollisions/") 
             self.path = run_folder
+            self.states = np.empty((0, self.num_agents, 7))
+            self.actions = np.empty((0, self.num_agents, 3))
             for self.lap_n in range(self.n_test_laps):
                 if not self.load_lap_data(): break # no moreSAC_0_0000_Std_Cth_f1_esp_6_10_850_0 laps
                 print(f"Processing test lap {self.lap_n}...")
-                self.plot_velocity_heat_map()
+            self.plot_velocity_heat_map(run_num=j)
 
 
     def load_lap_data(self):
@@ -114,77 +114,59 @@ class AnalyseTestLapData:
             print(e)
             print(f"No data for: " + f"Lap_{self.lap_n}_history_{self.vehicle_name}_{self.map_name}.npy")
             return 0
-        self.states = data[:, :, :7]
-        self.actions = data[:, :, 7:]
+        last_states = data[:, -1, :7].reshape(1, self.num_agents, 7)
+        last_actions = data[:, -1, 7:].reshape(1, self.num_agents, 3)
+        self.states = np.concatenate([self.states, last_states], axis=0)
+        self.actions = np.concatenate([self.actions, last_actions], axis=0)
 
         return 1 # to say success
 
     
-    def plot_velocity_heat_map(self): 
+    def plot_velocity_heat_map(self, run_num=0): 
         save_path  = self.path + "TestingCollisions/"
         
         plt.figure(1)
         plt.clf()
         lap_length = self.states.shape[1]
-        window_start, window_end = int(lap_length * 0.0), int(lap_length * 1.0)
-        window_sparsity = 3
         legend_patches = []
-        for agent_id in range(self.num_agents):
-            points = self.states[agent_id, :, 0:2]
-            angles = self.states[agent_id, :, 4]
-            vs = self.states[agent_id, :, 3]
-            target = self.run_data[0].architecture # self.path[:-1].split('/')[-1].split('_')[0]
-            advs = [ARCH_MAP[int(str_adv)] for str_adv in self.path[:-1].split("/")[-1].split('_')[1]]  
-            agent_names = [f"{adv} (Adversary #{adv_idx + 1})" for adv_idx, adv in enumerate(self.run_data[0].adversaries)]
-            agent_names.insert(0, f"{target} (Target)") 
 
-            self.map_data.plot_map_img()
+        agent_id = 0 # target agent
+        points = self.states[:, agent_id, 0:2]
+        angles = self.states[:, agent_id, 4]
 
-            xs, ys = self.map_data.pts2rc(points)
-            points = np.concatenate([xs[:, None], ys[:, None]], axis=1)
-            points = points.reshape(-1, 1, 2)
-            segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        xs, ys = self.map_data.pts2rc(points)
+        points = np.concatenate([xs[:, None], ys[:, None]], axis=1)
+        points = points.reshape(-1, 2)
+        
+        self.map_data.plot_map_img()
 
-            norm = plt.Normalize(0, 8)
+        # Plot vehicle
+        width, length = 10, 5
+        for t, ((x, y), angle) in enumerate(zip(points, angles)):
+            # plt.text(x + 5, y + 5, f"Lap {t}", fontsize=3, ha='left', color=colors[agent_id])
+            car = Rectangle(
+                (x - (width/2), y - (length/2)),
+                width, length,
+                angle=(angle * 180) / np.pi,
+                rotation_point='center',
+                color=colors[agent_id], 
+                fill=False,
+                linewidth=0.6,
+                alpha=0.85,
+                )
+            arr = Arrow(
+                x, y,
+                (width)*np.cos(angle), (width)*np.sin(angle),
+                width=length,
+                color=colors[agent_id], 
+                fill=False,
+                linewidth=0.2,
+                alpha=0.85
+                )
+            _ = plt.gca().add_patch(car)
+            _ = plt.gca().add_patch(arr)
 
-            # Plot opaque line
-            lc = LineCollection(segments, colors=colors[agent_id], alpha=0.3)
-            lc.set_linewidth(1)
-            line = plt.gca().add_collection(lc)
-
-            # Plot vehicle
-            poi = points[window_start:window_end:window_sparsity]
-            aoi = angles[window_start:window_end:window_sparsity]
-            width, length = 10, 5
-            for t, (x, y, angle) in enumerate(zip(poi[:, 0, 0], poi[:, 0, 1], aoi)):
-                plt.text(x + 5, y + 5, f"$t_{t}$", fontsize=3, ha='left', color=colors[agent_id])
-                car = Rectangle(
-                    (x - (width/2), y - (length/2)),
-                    width, length,
-                    angle=(angle * 180) / np.pi,
-                    rotation_point='center',
-                    color=colors[agent_id], 
-                    fill=False,
-                    linewidth=0.6,
-                    alpha=0.85,
-                    )
-                arr = Arrow(
-                    x, y,
-                    (width)*np.cos(angle), (width)*np.sin(angle),
-                    width=length,
-                    color=colors[agent_id], 
-                    fill=False,
-                    linewidth=0.2,
-                    alpha=0.85
-                    )
-                _ = plt.gca().add_patch(car)
-                _ = plt.gca().add_patch(arr)
-
-            if LEGEND:
-                legend_patches.append(Patch(color=colors[agent_id], label=agent_names[agent_id], fill=False, linewidth=3))
-                plt.gca().legend(handles=legend_patches, loc=LEGEND_LOC, fontsize=10)
             plt.gca().set_aspect('equal', adjustable='box')
-
         
         plt.xticks([])
         plt.yticks([])
@@ -195,18 +177,18 @@ class AnalyseTestLapData:
         ax.spines['bottom'].set_visible(False)
         ax.spines['left'].set_visible(False)
 
-        name = save_path + f"{self.vehicle_name}_velocity_map_{self.lap_n}_overtaking"
+        name = save_path + f"{self.vehicle_name}_collisions_{run_num} "
         set_limits(self.map_name)
         std_img_saving(name)
 
 def set_limits(map_name):
     # # ESP Full
-    # plt.xlim(20, 1500)
-    # plt.ylim(50, 520)
+    plt.xlim(20, 1500)
+    plt.ylim(50, 520)
 
-    # ESP Start
-    plt.xlim(650, 1200)
-    plt.ylim(300, 520)
+    # # ESP Start
+    # plt.xlim(650, 1200)
+    # plt.ylim(300, 520)
 
 
 
