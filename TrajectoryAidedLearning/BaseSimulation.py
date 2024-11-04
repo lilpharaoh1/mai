@@ -50,7 +50,7 @@ def select_agent(run, conf, architecture, train=True, init=False, ma_info=[0.0, 
     return agent
 
 
-class TestSimulation():
+class BaseSimulation():
     def __init__(self, run_file: str):
         self.run_data = setup_run_list(run_file)
         self.conf = load_conf("config_file")

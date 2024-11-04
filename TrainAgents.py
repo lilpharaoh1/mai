@@ -16,7 +16,7 @@ from TrajectoryAidedLearning.Utils.RewardSignals import *
 from TrajectoryAidedLearning.Utils.StdTrack import StdTrack
 
 from TrajectoryAidedLearning.Utils.HistoryStructs import VehicleStateHistory
-from TrajectoryAidedLearning.TestSimulation import TestSimulation
+from TrajectoryAidedLearning.BaseSimulation import BaseSimulation
 
 # settings
 SHOW_TRAIN = False
@@ -58,7 +58,7 @@ def select_agent(run, conf, architecture, train=True, init=False, ma_info=[0.0, 
     return agent
 
 
-class TrainSimulation(TestSimulation):
+class TrainSimulation(BaseSimulation):
     def __init__(self, run_file):
         super().__init__(run_file)
 
@@ -210,11 +210,11 @@ def main():
     # run_file = "dev"
     # run_file = "SAC_lr"
     # run_file = "SAC_gamma"
-    # run_file = "SAC_singleagent"
+    run_file = "SAC_singleagent"
     # run_file = "SAC_multiagent_stationary"
     # run_file = "SAC_multiagent_nonstationary"
     # run_file = "dreamerv3_lr"
-    run_file = "dreamerv3_singleagent"
+    # run_file = "dreamerv3_singleagent"
     # run_file = "dreamerv3_multiagent_stationary"
     # run_file = "dreamerv3_multiagent_nonstationary"
     
