@@ -189,4 +189,6 @@ class DreamerV3Tester:
         return self.action 
 
     def lap_complete(self):
-        pass
+        self.nn_state = None
+        self.nn_rssm = None
+        self.nn_act = None
