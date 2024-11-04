@@ -73,28 +73,30 @@ class AnalyseTestLapData:
             self.process_folder(folder)
 
     def process_folder(self, folder):
-        self.path = folder
-
-        self.vehicle_name = self.path.split("/")[-2]
+        self.vehicle_name = folder.split("/")[-2]
                 
-        self.map_name = self.vehicle_name.split("_")[4]
+        self.map_name = self.vehicle_name.split("_")[5]
         if self.map_name == "f1":
-            self.map_name += "_" + self.vehicle_name.split("_")[5]
+            self.map_name += "_" + self.vehicle_name.split("_")[6]
         self.map_data = MapData(self.map_name)
         self.std_track = StdTrack(self.map_name)
         self.racing_track = RacingTrack(self.map_name)
 
-        if not os.path.exists(self.path + "TestingVelocities/"): 
-            os.mkdir(self.path + "TestingVelocities/")    
-        for self.lap_n in range(self.n_test_laps):
-            if not self.load_lap_data(): break # no more laps
-            print(f"Processing test lap {self.lap_n}...")
-            self.plot_velocity_heat_map()
+        runs_folders = glob.glob(f"{folder}" + "Testing/*/")
+        for j, run_folder in enumerate(runs_folders):
+            print(f"{j}) {run_folder}")
+            if not os.path.exists(run_folder + "TestingVelocities/"): 
+                os.mkdir(run_folder + "TestingVelocities/") 
+            self.path = run_folder
+            for self.lap_n in range(self.n_test_laps):
+                if not self.load_lap_data(): break # no moreSAC_0_0000_Std_Cth_f1_esp_6_10_850_0 laps
+                print(f"Processing test lap {self.lap_n}...")
+                self.plot_velocity_heat_map()
 
 
     def load_lap_data(self):
         try:
-            data = np.array([np.load(self.path + f"Testing/agent_{agent_id}/Lap_{self.lap_n}_history_{self.vehicle_name}_{self.map_name}.npy") for agent_id in range(self.num_agents)])
+            data = np.array([np.load(self.path + f"agent_{agent_id}/Lap_{self.lap_n}_history_{self.vehicle_name}_{self.map_name}.npy") for agent_id in range(self.num_agents)])
         except Exception as e:
             print(e)
             print(f"No data for: " + f"Lap_{self.lap_n}_history_{self.vehicle_name}_{self.map_name}.npy")
@@ -154,50 +156,47 @@ class AnalyseTestLapData:
         # std_img_saving(name)
 
 def whole_limits(map_name):
-    match map_name:
-        case "f1_esp":
-            plt.xlim(20, 1500)
-            plt.ylim(50, 520)
-        case "f1_aut":
-            plt.xlim(20, 1500)
-            plt.ylim(50, 520)
-        case "f1_gbr":
-            plt.xlim(20, 1500)
-            plt.ylim(50, 520)
-        case "f1_mco":
-            plt.xlim(20, 1500)
-            plt.ylim(50, 520)
+    if map_name == "f1_esp":
+        plt.xlim(20, 1500)
+        plt.ylim(50, 520)
+    elif map_name == "f1_aut":
+        plt.xlim(20, 1500)
+        plt.ylim(50, 520)
+    elif map_name == "f1_aut":
+        plt.xlim(20, 1500)
+        plt.ylim(50, 520)
+    else: # "f1_mco":
+        plt.xlim(20, 1500)
+        plt.ylim(50, 520)
 
 def highlight1_limits(map_name):
-    match map_name:
-        case "f1_esp":
-            # ESP Start
-            plt.xlim(650, 1200)
-            plt.ylim(300, 520)
-        case "f1_aut":
-            plt.xlim(20, 1500)
-            plt.ylim(50, 520)
-        case "f1_gbr":
-            plt.xlim(20, 1500)
-            plt.ylim(50, 520)
-        case "f1_mco":
-            plt.xlim(20, 1500)
-            plt.ylim(50, 520)
+    if map_name == "f1_esp":
+        # ESP Start
+        plt.xlim(650, 1200)
+        plt.ylim(300, 520)
+    elif map_name == "f1_aut":
+        plt.xlim(20, 1500)
+        plt.ylim(50, 520)
+    elif map_name == "f1_aut":
+        plt.xlim(20, 1500)
+        plt.ylim(50, 520)
+    else: # "f1_mco":
+        plt.xlim(20, 1500)
+        plt.ylim(50, 520)
 
 def highlight2_limits(map_name):
-    match map_name:
-        case "f1_esp":
-            plt.xlim(900, 1500)
-            plt.ylim(50, 520)
-        case "f1_aut":
-            plt.xlim(20, 1500)
-            plt.ylim(50, 520)
-        case "f1_gbr":
-            plt.xlim(20, 1500)
-            plt.ylim(50, 520)
-        case "f1_mco":
-            plt.xlim(20, 1500)
-            plt.ylim(50, 520)
+    if map_name == "f1_esp":
+        plt.xlim(900, 1500)
+        plt.ylim(50, 520)
+    elif map_name == "f1_aut":
+        plt.xlim(20, 1500)
+        plt.ylim(50, 520)
+    elif map_name == "f1_aut":
+        plt.xlim(20, 1500)
+        plt.ylim(50, 520)
+    else: # "f1_mco":
+        plt.xlim(20, 1500)
+        plt.ylim(50, 520)
 
 def analyse_folder(run_file):    
     TestData = AnalyseTestLapData()

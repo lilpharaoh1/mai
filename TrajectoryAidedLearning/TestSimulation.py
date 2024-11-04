@@ -1,11 +1,22 @@
+import os
+import sys
+sys.path.insert(0, os.getcwd()) # hacky fix
+
 from TrajectoryAidedLearning.f110_gym.f110_env import F110Env
 from TrajectoryAidedLearning.Utils.utils import *
-from TrajectoryAidedLearning.Utils.HistoryStructs import VehicleStateHistory
 
 from TrajectoryAidedLearning.Planners.PurePursuit import PurePursuit
 from TrajectoryAidedLearning.Planners.DisparityExtender import DispExt
 from TrajectoryAidedLearning.Planners.TD3Planners import TD3Trainer, TD3Tester
 from TrajectoryAidedLearning.Planners.SACPlanners import SACTrainer, SACTester
+from TrajectoryAidedLearning.Planners.DreamerV2Planners import DreamerV2Trainer, DreamerV2Tester
+from TrajectoryAidedLearning.Planners.DreamerV3Planners import DreamerV3Trainer, DreamerV3Tester
+
+from TrajectoryAidedLearning.Utils.RewardSignals import *
+from TrajectoryAidedLearning.Utils.StdTrack import StdTrack
+
+from TrajectoryAidedLearning.Utils.HistoryStructs import VehicleStateHistory
+
 
 import torch
 import numpy as np
@@ -14,8 +25,8 @@ import time
 
 # settings
 SHOW_TRAIN = False
-# SHOW_TEST = False
-SHOW_TEST = True
+SHOW_TEST = False
+# SHOW_TEST = True
 VERBOSE = True
 LOGGING = True
 GRID_X_COEFF = 2.0
@@ -50,7 +61,7 @@ def select_agent(run, conf, architecture, train=True, init=False, ma_info=[0.0, 
     return agent
 
 
-class BaseSimulation():
+class TestSimulation():
     def __init__(self, run_file: str):
         self.run_data = setup_run_list(run_file)
         self.conf = load_conf("config_file")
@@ -100,27 +111,31 @@ class BaseSimulation():
             self.num_agents = run.num_agents
             self.target_position = run.target_position
 
-            if run.architecture == "PP": 
-                planner = PurePursuit(self.conf, run)
-            elif run.architecture == "fast": 
-                planner = AgentTester(run, self.conf)
-            else: raise AssertionError(f"Planner {run.planner} not found")
+            self.std_track = StdTrack(run.map_name, num_agents=run.num_agents)
+            self.reward = select_reward_function(run, self.conf, self.std_track)
 
-            if run.map_mode == "Std": self.target_planner = planner
-            else: raise AssertionError(f"Test mode {run.map_mode} not found")
-
-            self.vehicle_state_history = [VehicleStateHistory(run, f"Testing/agent_{agent_id}") for agent_id in range(run.num_agents)]
-
-
+            self.target_planner = select_agent(run, self.conf, run.architecture, train=False, init=False)
+            
             self.n_test_laps = run.n_test_laps
+            
+            self.run_testing(run)
 
-            eval_dict = self.run_testing()
-            run_dict = vars(run)
-            run_dict.update(eval_dict)
-
-            save_conf_dict(run_dict)
+            conf = vars(self.conf)
+            conf['path'] = run.path
+            conf['run_name'] = run.run_name
+            save_conf_dict(conf, "TrainingConfig")
 
             self.env.close_rendering()
+
+            ###################
+
+            # eval_dict = self.run_testing()
+            # run_dict = vars(run)
+            # run_dict.update(eval_dict)
+
+            # save_conf_dict(run_dict)
+
+            # self.env.close_rendering()
 
     def run_testing(self, run):
         if len(run.adversaries) == 0:
@@ -133,6 +148,7 @@ class BaseSimulation():
 
         for ma_idx, ma_info in enumerate(ma_runlist):
             self.adv_planners = [select_agent(run, self.conf, architecture, train=False, init=False, ma_info=ma_info) for architecture in run.adversaries]
+            self.vehicle_state_history = [VehicleStateHistory(run, f"Testing/Testing_{ma_idx}/agent_{agent_id}") for agent_id in range(self.num_agents)]
             assert self.env != None, "No environment created"
             start_time = time.time()
 
@@ -375,10 +391,16 @@ class BaseSimulation():
 
 
 def main():
-    # run_file = "PP_speeds"
-    run_file = "PP_maps8"
-    # run_file = "Eval_RewardsSlow"
-    
+    # run_file = "dev"
+    # run_file = "SAC_lr"
+    # run_file = "SAC_gamma"
+    run_file = "SAC_singleagent"
+    # run_file = "SAC_multiagent_stationary"
+    # run_file = "SAC_multiagent_nonstationary"
+    # run_file = "dreamerv3_lr"
+    # run_file = "dreamerv3_singleagent"
+    # run_file = "dreamerv3_multiagent_stationary"
+    # run_file = "dreamerv3_multiagent_nonstationary"
     
     sim = TestSimulation(run_file)
     sim.run_testing_evaluation()

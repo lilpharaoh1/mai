@@ -81,6 +81,8 @@ class AnalyseTestLapData:
             self.process_folder(folder)
 
     def process_folder(self, folder):
+        # self.path = folder
+
         self.vehicle_name = folder.split("/")[-2]
                 
         self.map_name = self.vehicle_name.split("_")[5]
@@ -96,8 +98,8 @@ class AnalyseTestLapData:
         runs_folders = glob.glob(f"{folder}" + "Testing/*/")
         for j, run_folder in enumerate(runs_folders):
             print(f"{j}) {run_folder}")
-            if not os.path.exists(run_folder + "TestingOvertaking/"): 
-                os.mkdir(run_folder + "TestingOvertaking/") 
+            if not os.path.exists(run_folder + "TestingCollisions/"): 
+                os.mkdir(run_folder + "TestingCollisions/") 
             self.path = run_folder
             for self.lap_n in range(self.n_test_laps):
                 if not self.load_lap_data(): break # no moreSAC_0_0000_Std_Cth_f1_esp_6_10_850_0 laps
@@ -119,7 +121,7 @@ class AnalyseTestLapData:
 
     
     def plot_velocity_heat_map(self): 
-        save_path  = self.path + "TestingOvertaking/"
+        save_path  = self.path + "TestingCollisions/"
         
         plt.figure(1)
         plt.clf()
