@@ -357,7 +357,7 @@ class TestSimulation():
         return observations
 
     def calc_offsets(self, num_adv):
-        x_offset = np.arange(1, num_adv+1) * 2.0
+        x_offset = np.arange(1, num_adv+1) * 5.5
         y_offset = np.zeros(num_adv)
         y_offset[::2] = np.ones(ceil(num_adv/2)) * 0.6
         offset = np.concatenate((x_offset.reshape(1, -1), y_offset.reshape(1, -1), np.zeros((1, num_adv))), axis=0).T
