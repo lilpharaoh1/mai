@@ -124,7 +124,7 @@ class AnalyseTestLapData:
             points = points.reshape(-1, 1, 2)
             segments = np.concatenate([points[:-1], points[1:]], axis=1)
 
-            norm = plt.Normalize(0, 8)
+            norm = plt.Normalize(0, 6)
             lc = LineCollection(segments, cmap=cmaps[agent_id], norm=norm)
             lc.set_array(vs)
             lc.set_linewidth(2)

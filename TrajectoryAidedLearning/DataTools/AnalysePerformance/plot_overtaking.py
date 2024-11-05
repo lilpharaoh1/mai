@@ -199,12 +199,12 @@ class AnalyseTestLapData:
 
 def set_limits(map_name):
     # # ESP Full
-    # plt.xlim(20, 1500)
-    # plt.ylim(50, 520)
+    plt.xlim(20, 1500)
+    plt.ylim(50, 520)
 
-    # ESP Start
-    plt.xlim(650, 1200)
-    plt.ylim(300, 520)
+    # # ESP Start
+    # plt.xlim(650, 1200)
+    # plt.ylim(300, 520)
 
 
 

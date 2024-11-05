@@ -54,6 +54,10 @@ def select_agent(run, conf, architecture, train=True, init=False, ma_info=[0.0, 
         agent = TD3Trainer(run, conf, init=init) if train else TD3Tester(run, conf)
     elif agent_type == "SAC":
         agent = SACTrainer(run, conf, init=init) if train else SACTester(run, conf)
+    elif agent_type == "DreamerV2":
+        agent = DreamerV2Trainer(run, conf) if train else DreamerV2Tester(run, conf)
+    elif agent_type == "DreamerV3":
+        agent = DreamerV3Trainer(run, conf, init=init) if train else DreamerV3Tester(run, conf)
     elif agent_type == "DispExt":
         agent = DispExt(run, conf, ma_info=ma_info)
     else: raise Exception("Unknown agent type: " + agent_type)
@@ -394,12 +398,12 @@ def main():
     # run_file = "dev"
     # run_file = "SAC_lr"
     # run_file = "SAC_gamma"
-    run_file = "SAC_singleagent"
+    # run_file = "SAC_singleagent"
     # run_file = "SAC_multiagent_stationary"
     # run_file = "SAC_multiagent_nonstationary"
     # run_file = "dreamerv3_lr"
     # run_file = "dreamerv3_singleagent"
-    # run_file = "dreamerv3_multiagent_stationary"
+    run_file = "dreamerv3_multiagent_stationary"
     # run_file = "dreamerv3_multiagent_nonstationary"
     
     sim = TestSimulation(run_file)
