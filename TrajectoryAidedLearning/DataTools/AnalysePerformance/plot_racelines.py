@@ -147,9 +147,9 @@ class AnalyseTestLapData:
         whole_limits(self.map_name)
         std_img_saving(name)
 
-        name = save_path + f"{self.vehicle_name}_velocity_map_{self.lap_n}_highlight1"
-        highlight1_limits(self.map_name)
-        std_img_saving(name)
+        # name = save_path + f"{self.vehicle_name}_velocity_map_{self.lap_n}_highlight1"
+        # highlight1_limits(self.map_name)
+        # std_img_saving(name)
 
         # name = save_path + f"{self.vehicle_name}_velocity_map_{self.lap_n}_highlight2"
         # highlight2_limits(self.map_name)
