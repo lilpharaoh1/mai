@@ -30,9 +30,7 @@ class DreamerV3Trainer:
 
         self.t_his = TrainHistory(run, conf, cont=not init)
         if not init:
-            checkpoint = torch.load(self.path + '/' + run.run_name + ".pth")
-            self.agent.load_state_dict(checkpoint['agent_state_dict'])
-            self.buffer_eps = tools.load_episodes
+            self.agent.load(self.path)
 
         self.train = self.agent.train # alias for sss
         # self.save = self.agent.save # alias for sss

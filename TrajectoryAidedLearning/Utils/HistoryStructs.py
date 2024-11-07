@@ -162,8 +162,6 @@ class TrainHistory():
                 self.progresses[i] = float(row[3])
                 self.overtaking[i] = float(row[4])
                 self.laptimes[i] = float(row[5])
-                print("reloaded lap", i)
-
 
 
 class VehicleStateHistory:
