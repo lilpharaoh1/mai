@@ -1,5 +1,6 @@
 import os, shutil
 import csv
+import glob
 import numpy as np
 from matplotlib import pyplot as plt
 from TrajectoryAidedLearning.Utils.utils import *
@@ -27,7 +28,7 @@ def plot_data(values, moving_avg_period=10, title="Results", figure_n=2):
 
 
 class TrainHistory():
-    def __init__(self, run, conf) -> None:
+    def __init__(self, run, conf, cont=False) -> None:
         self.path = conf.vehicle_path + run.path +  run.run_name 
 
         # training data
@@ -46,6 +47,9 @@ class TrainHistory():
         self.ep_reward = 0
         self.ep_pos_overtaking = 0
         self.ep_neg_overtaking = 0
+
+        if cont:
+            self.load_history()
 
     def add_overtaking(self, new_o):
         if new_o > 0:
@@ -145,6 +149,21 @@ class TrainHistory():
         plt.savefig(self.path + "/training_overtaking_steps.png")
 
         # plt.close()
+    
+    def load_history(self):
+        filename = self.path + "/training_data_episodes.csv"
+        with open(filename, 'r') as file:
+            data = csv.reader(file)
+            for i, row in enumerate(data):
+                # data.append([i, self.rewards[i], self.lengths[i], self.progresses[i], self.overtaking[i], self.laptimes[i]])
+                self.ptr = int(row[0]) + 1
+                self.rewards[i] = float(row[1])
+                self.lengths[i] = float(row[2])
+                self.progresses[i] = float(row[3])
+                self.overtaking[i] = float(row[4])
+                self.laptimes[i] = float(row[5])
+                print("reloaded lap", i)
+
 
 
 class VehicleStateHistory:

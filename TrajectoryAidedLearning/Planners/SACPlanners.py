@@ -28,7 +28,9 @@ class SACTrainer:
         self.agent = SAC(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out, lr=run.lr, gamma=run.gamma)
         self.agent.create_agent(conf.h_size)
 
-        self.t_his = TrainHistory(run, conf)
+        self.t_his = TrainHistory(run, conf, cont=not init)
+        if not init:
+            self.agent.load(self.path)
 
         self.train = self.agent.train # alias for sss
         self.save = self.agent.save # alias for sss

@@ -83,6 +83,7 @@ class TrainSimulation(TestSimulation):
             self.map_name = run.map_name
             self.num_agents = run.num_agents
             self.target_position = run.target_position
+            self.start_train_steps = run.start_train_steps
             self.n_train_steps = run.n_train_steps
             assert self.num_agents == len(run.adversaries) + 1, "Number of agents != number of adversaries + 1"
 
@@ -90,7 +91,7 @@ class TrainSimulation(TestSimulation):
             self.std_track = StdTrack(run.map_name, num_agents=run.num_agents)
             self.reward = select_reward_function(run, self.conf, self.std_track)
 
-            self.target_planner = select_agent(run, self.conf, run.architecture, init=True)
+            self.target_planner = select_agent(run, self.conf, run.architecture, init=(not self.start_train_steps > 0))
 
             self.vehicle_state_history = [VehicleStateHistory(run, f"Training/agent_{agent_id}") for agent_id in range(self.num_agents)]
 
@@ -140,7 +141,7 @@ class TrainSimulation(TestSimulation):
             ma_info = [speed_c, la_c] 
         self.adv_planners = [select_agent(run, self.conf, architecture, init=False, ma_info=ma_info) for architecture in run.adversaries] 
 
-        for i in range(self.n_train_steps):
+        for i in range(self.start_train_steps, self.n_train_steps):
             self.prev_obs = observations # used for calculating reward, so only wanst target_obs
             target_action = self.target_planner.plan(target_obs)
             # target_action = np.array([0.0, 1.8]) + np.random.normal(scale=np.array([0.025, 0.2]))
@@ -210,12 +211,12 @@ def main():
     # run_file = "dev"
     # run_file = "SAC_lr"
     # run_file = "SAC_gamma"
-    # run_file = "SAC_singleagent"
+    run_file = "SAC_singleagent"
     # run_file = "SAC_multiagent_stationary"
     # run_file = "SAC_multiagent_nonstationary"
     # run_file = "dreamerv3_lr"
     # run_file = "dreamerv3_singleagent"
-    run_file = "dreamerv3_multiagent_stationary"
+    # run_file = "dreamerv3_multiagent_stationary"
     # run_file = "dreamerv3_multiagent_nonstationary"
     
     sim = TrainSimulation(run_file)

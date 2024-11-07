@@ -305,7 +305,7 @@ class PurePursuit:
         self.raceline = True # run.raceline
         self.speed_mode = 'raceline'# run.pp_speed_mode
         self.max_speed = run.max_speed
-        self.slow_down = 0.7
+        self.slow_down = 0.85
         self.trajectory = Trajectory(run.map_name, self.raceline)
         self.speed_c, self.la_c = ma_info
 
