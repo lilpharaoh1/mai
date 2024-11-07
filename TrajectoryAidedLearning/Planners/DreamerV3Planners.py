@@ -27,9 +27,12 @@ class DreamerV3Trainer:
         self.transform = FastTransform(run, conf)
 
         self.agent = DreamerV3(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out, lr=run.lr)
-        # self.agent.create_agent()
 
-        self.t_his = TrainHistory(run, conf)
+        self.t_his = TrainHistory(run, conf, cont=not init)
+        if not init:
+            checkpoint = torch.load(self.path + '/' + run.run_name + ".pth")
+            self.agent.load_state_dict(checkpoint['agent_state_dict'])
+            self.buffer_eps = tools.load_episodes
 
         self.train = self.agent.train # alias for sss
         # self.save = self.agent.save # alias for sss

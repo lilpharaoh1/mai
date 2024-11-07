@@ -4,6 +4,7 @@ import os
 import pathlib
 import sys
 import collections
+import glob
 
 os.environ["MUJOCO_GL"] = "osmesa"
 
@@ -232,6 +233,16 @@ class DreamerV3(nn.Module):
         
         # Change expl_coeff every episode
         self._expl_coeff *= 0.99
+
+    def load(self, path):
+        eps_dir = path + "/Buffer/*"
+        eps_paths = glob.glob(eps_dir)
+        laps = [int(eps_path.split('/')[-1][4:].split('-')[0]) for path in eps_path]
+        eps_path = [s for _, s in sorted(zip(laps, eps_path))]
+
+        print(eps_path)
+        exit()
+
 
 
 

@@ -211,11 +211,11 @@ def main():
     # run_file = "dev"
     # run_file = "SAC_lr"
     # run_file = "SAC_gamma"
-    run_file = "SAC_singleagent"
+    # run_file = "SAC_singleagent"
     # run_file = "SAC_multiagent_stationary"
     # run_file = "SAC_multiagent_nonstationary"
     # run_file = "dreamerv3_lr"
-    # run_file = "dreamerv3_singleagent"
+    run_file = "dreamerv3_singleagent"
     # run_file = "dreamerv3_multiagent_stationary"
     # run_file = "dreamerv3_multiagent_nonstationary"
     
