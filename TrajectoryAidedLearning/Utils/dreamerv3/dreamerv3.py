@@ -237,11 +237,19 @@ class DreamerV3(nn.Module):
     def load(self, path):
         eps_dir = path + "/Buffer/*"
         eps_paths = glob.glob(eps_dir)
-        laps = [int(eps_path.split('/')[-1][4:].split('-')[0]) for path in eps_path]
-        eps_path = [s for _, s in sorted(zip(laps, eps_path))]
+        laps = [int(eps_path.split('/')[-1][4:].split('-')[0]) for eps_path in eps_paths]
+        eps_paths = [s for _, s in sorted(zip(laps, eps_paths))]
 
-        print(eps_path)
-        exit()
+        for idx, eps_path in enumerate(eps_paths):
+            with np.load(eps_path) as data:
+                episode = {k: data[k] for k in data.files}
+            self.buffer_eps[f"eps_{idx}"] = episode
+
+        checkpoint = torch.load(path + '/' + self.name + ".pth")
+        self.load_state_dict(checkpoint['agent_state_dict'])
+
+        # EMRAN need something better than this
+        self._expl_coeff = 0
 
 
 
