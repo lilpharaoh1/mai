@@ -30,12 +30,8 @@ class AnalyseTestLapData:
         vehicle_folders = glob.glob(f"{path}*/")
         run_names = [folder[:-2] for folder in vehicle_folders[:int(len(vehicle_folders)/self.n)]]
         run_folders = [glob.glob(f"{run_name}*/") for run_name in run_names]
-        print(vehicle_folders)
-        print(run_names)
-        print(run_folders)
         print(f"{len(vehicle_folders)} folders found")
-
-    
+        
         for run_num, run_folder in enumerate(run_folders):
             run_succ = np.empty((0, 7, 7))
             for idx, folder in enumerate(run_folder):
@@ -79,13 +75,12 @@ class AnalyseTestLapData:
         std_img_saving(save_path)
 
     def find_succ(self, folder):
-        print("find_succ, folder:", folder)
         indv_succ = np.zeros((7, 7)) 
         for i in range(0, 48):
             yaml_path = f"{folder}RunConfig_{i}_record.yaml"
             with open(yaml_path) as file:
                 run_config = yaml.safe_load(file)
-                indv_succ[i // 7, i % 7] = run_config['success_rate']
+                indv_succ[i // 7, i % 7] = run_config['avg_reward']
         
         return indv_succ.reshape((1, 7, 7))
 
