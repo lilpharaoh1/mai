@@ -159,12 +159,14 @@ class TestSimulation():
             self.lap_times = []
             self.places = []
             self.progresses = []
+            self.rewards = []
             self.completed_laps = 0
 
             for i in range(self.n_test_laps):
                 observations = self.reset_simulation()
                 target_obs = observations[0]
 
+                eps_reward = 0.0
                 while not target_obs['colision_done'] and not target_obs['lap_done'] and not target_obs['current_laptime'] > self.conf.max_laptime:
                     self.prev_obs = observations
                     target_action = self.target_planner.plan(observations[0])
@@ -175,11 +177,13 @@ class TestSimulation():
                         actions = target_action.reshape(1, -1)
                     observations = self.run_step(actions)
                     target_obs = observations[0]
+                    eps_reward += target_obs['reward']
 
                     if SHOW_TEST: self.env.render('human_fast')
 
                 self.target_planner.lap_complete()
                 self.progresses.append(target_obs['progress'])
+                self.rewards.append(eps_reward)
                 if target_obs['lap_done']:
                     if VERBOSE: print(f"Lap {i} Complete in time: {target_obs['current_laptime']}")
                     self.lap_times.append(target_obs['current_laptime'])
@@ -217,11 +221,16 @@ class TestSimulation():
             else:
                 avg_progress, progress_std_dev = 0, 0
 
+            if len(self.rewards) > 0:
+                avg_reward, reward_std_dev = np.mean(self.rewards), np.std(self.rewards)
+            else:
+                avg_reward, reward_std_dev = 0, 0
+
             print(f"Crashes: {self.n_test_laps - self.completed_laps} VS Completes {self.completed_laps} --> {success_rate:.2f} %")
             print(f"Lap times Avg: {avg_times} --> Std: {times_std_dev}")
             print(f"Place Avg: {avg_place} --> Std: {place_std_dev}")
             print(f"Progress Avg: {avg_progress} --> Std: {progress_std_dev}")
-
+            print(f"Reward Avg: {avg_reward} --> Std: {reward_std_dev}")
 
             eval_dict = {}
             eval_dict['success_rate'] = float(success_rate)
@@ -231,6 +240,8 @@ class TestSimulation():
             eval_dict['place_std_dev'] = float(place_std_dev)
             eval_dict['avg_progress'] = float(avg_progress)
             eval_dict['progress_std_dev'] = float(progress_std_dev)
+            eval_dict['avg_reward'] = float(avg_reward)
+            eval_dict['reward_std_dev'] = float(reward_std_dev)
 
             run_dict = vars(run)
             run_dict.update(eval_dict)
@@ -240,6 +251,7 @@ class TestSimulation():
             self.lap_times = []
             self.places = []
             self.progresses = []
+            self.rewards = []
             self.completed_laps = 0
 
     # this is an overide
