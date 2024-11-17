@@ -42,19 +42,18 @@ class AnalyseTestLapData:
                 print(f"Vehicle folder being opened: {folder}")
                 indv_succ = self.find_succ(folder)
                 run_succ = np.concatenate([run_succ, indv_succ])
-                self.plot_succ_mat(indv_succ, save_path=f'{folder}success_{idx}')
-            self.plot_succ_mat(np.mean(run_succ, axis=0).reshape(1, 7, 7), save_path=f'{path}avg_success_{run_num}')
+                self.plot_succ_mat(indv_succ, save_path=f'{folder}reward_{idx}')
+            self.plot_succ_mat(np.mean(run_succ, axis=0).reshape(1, 7, 7), save_path=f'{path}avg_reward_{run_num}')
 
 
 
     def plot_succ_mat(self, data, save_path=None):
         # Reshape data
         data = data.squeeze(0)
-        data /= 100 
         
         # Plot using matplotlib
         fig, ax = plt.subplots(figsize=(8, 6))
-        cax = ax.matshow(data, cmap='magma_r', vmin=0.0, vmax=1.0)
+        cax = ax.matshow(data, cmap='magma_r', vmin=0.0, vmax=250.0)
 
         # Add color bar to show the scale
         fig.colorbar(cax)
@@ -62,7 +61,7 @@ class AnalyseTestLapData:
         # Annotate each cell with the numeric value
         for i in range(data.shape[0]):
             for j in range(data.shape[1]):
-                ax.text(j, i, f'{data[i, j]:.2f}', va='center', ha='center', color='black' if data[i, j] < 0.5 else 'white')
+                ax.text(j, i, f'{data[i, j]:.2f}', va='center', ha='center', color='black' if data[i, j] < 125.0 else 'white')
 
         # Draw a box around the middle 3x3 area
         rect = plt.Rectangle((2 - 0.5, 2 - 0.5), 3, 3, edgecolor='green', facecolor='none', linewidth=2, linestyle='--')
