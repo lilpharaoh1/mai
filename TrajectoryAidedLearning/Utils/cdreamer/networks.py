@@ -32,6 +32,10 @@ class RSSM(nn.Module):
         num_actions=None,
         embed=None,
         device=None,
+        add_dcontext=False,
+        add_dcontext_prior=False,
+        add_dcontext_posterior=False,
+        context_size=0
     ):
         super(RSSM, self).__init__()
         self._stoch = stoch
@@ -48,6 +52,13 @@ class RSSM(nn.Module):
         self._num_actions = num_actions
         self._embed = embed
         self._device = device
+
+        # Context stuff
+        print("\n\n\n\n\n here... \n\n\n\n\n")
+        self._add_dcontext = add_dcontext
+        self._add_dcontext_prior = add_dcontext_prior
+        self._add_dcontext_posterior = add_dcontext_posterior
+        self.context_size = context_size
 
         inp_layers = []
         if self._discrete:
@@ -123,22 +134,24 @@ class RSSM(nn.Module):
             return state
         elif self._initial == "learned":
             state["deter"] = torch.tanh(self.W).repeat(batch_size, 1)
-            state["stoch"] = self.get_stoch(state["deter"])
+            if self.add_context_prior:
+                x = np.concatenate([state["deter"], np.zeros((batch_size, self.context_size))])
+            state["stoch"] = self.get_stoch(x)
             return state
         else:
             raise NotImplementedError(self._initial)
 
-    def observe(self, embed, action, is_first, state=None):
+    def observe(self, embed, action, is_first, state=None, dcontext=None):
         swap = lambda x: x.permute([1, 0] + list(range(2, len(x.shape))))
         # (batch, time, ch) -> (time, batch, ch)
-        embed, action, is_first = swap(embed), swap(action), swap(is_first)
+        embed, action, is_first context = swap(embed), swap(action), swap(is_first), swap(dcontext) if self.add_dcontext else None
         
         # prev_state[0] means selecting posterior of return(posterior, prior) from obs_step
         post, prior = tools.static_scan(
-            lambda prev_state, prev_act, embed, is_first: self.obs_step(
-                prev_state[0], prev_act, embed, is_first
+            lambda prev_state, prev_act, embed, is_first, context: self.obs_step(
+                prev_state[0], prev_act, embed, is_first, context
             ),
-            (action, embed, is_first),
+            (action, embed, is_first, context),
             (state, state),
         )
         
@@ -147,11 +160,11 @@ class RSSM(nn.Module):
         prior = {k: swap(v) for k, v in prior.items()}
         return post, prior
 
-    def imagine_with_action(self, action, state):
+    def imagine_with_action(self, action, state, dcontext=None):
         swap = lambda x: x.permute([1, 0] + list(range(2, len(x.shape))))
         assert isinstance(state, dict), state
-        action = swap(action)
-        prior = tools.static_scan(self.img_step, [action], state)
+        action, context = swap(action), swap(dcontext) if self.add_dcontext else None
+        prior = tools.static_scan(self.img_step, [action, context], state)
         prior = prior[0]
         prior = {k: swap(v) for k, v in prior.items()}
         return prior
@@ -176,7 +189,7 @@ class RSSM(nn.Module):
             )
         return dist
 
-    def obs_step(self, prev_state, prev_action, embed, is_first, sample=True):
+    def obs_step(self, prev_state, prev_action, embed, is_first, dcontext=None, sample=True):
         # initialize all prev_state
         if prev_state == None or torch.sum(is_first) == len(is_first):
             prev_state = self.initial(len(is_first))
@@ -198,9 +211,11 @@ class RSSM(nn.Module):
                     val * (1.0 - is_first_r) + init_state[key] * is_first_r
                 )
 
-        prior = self.img_step(prev_state, prev_action)
+        prior = self.img_step(prev_state, prev_action, dcontext=dcontext)
         # print("in obs_step -> prior[deter], embed :", prior['deter'].shape, embed.shape)
         x = torch.cat([prior["deter"], embed.reshape(1, -1) if len(embed.shape) == 1 else embed], -1) # EMRAN check which one should be reshaped
+        if dcontext is not None and self.add_dcontext_posterior:
+            x = np.concatenate([x, dcontext], -1)
         # (batch_size, prior_deter + embed) -> (batch_size, hidden)
         x = self._obs_out_layers(x)
         # (batch_size, hidden) -> (batch_size, stoch, discrete_num)
@@ -212,7 +227,7 @@ class RSSM(nn.Module):
         post = {"stoch": stoch, "deter": prior["deter"], **stats}
         return post, prior
 
-    def img_step(self, prev_state, prev_action, sample=True):
+    def img_step(self, prev_state, prev_action, dcontext=None, sample=True):
         # (batch, stoch, discrete_num)
         prev_stoch = prev_state["stoch"]
         if self._discrete:
@@ -221,6 +236,7 @@ class RSSM(nn.Module):
             prev_stoch = prev_stoch.reshape(shape)
         # (batch, stoch * discrete_num) -> (batch, stoch * discrete_num + action)
         x = torch.cat([prev_stoch, prev_action.reshape(1, -1) if len(prev_action.shape) == 1 else prev_action], -1) # EMRAN check which one should be reshaped
+        x = x if dcontext is None else np.concatenate([x, dcontext], -1)
         # (batch, stoch * discrete_num + action, embed) -> (batch, hidden)
         x = self._img_in_layers(x)
         for _ in range(self._rec_depth):  # rec depth is not correctly implemented
@@ -228,6 +244,8 @@ class RSSM(nn.Module):
             # (batch, hidden), (batch, deter) -> (batch, deter), (batch, deter)
             x, deter = self._cell(x, [deter])
             deter = deter[0]  # Keras wraps the state in a list.
+        if dcontext is not None and self.add_dcontext_posterior:
+            x = np.concatenate([x, dcontext], -1)
         # (batch, deter) -> (batch, hidden)
         x = self._img_out_layers(x)
         # (batch, hidden) -> (batch_size, stoch, discrete_num)

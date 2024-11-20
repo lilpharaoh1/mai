@@ -11,6 +11,7 @@ from TrajectoryAidedLearning.Planners.TD3Planners import TD3Trainer, TD3Tester
 from TrajectoryAidedLearning.Planners.SACPlanners import SACTrainer, SACTester
 from TrajectoryAidedLearning.Planners.DreamerV2Planners import DreamerV2Trainer, DreamerV2Tester
 from TrajectoryAidedLearning.Planners.DreamerV3Planners import DreamerV3Trainer, DreamerV3Tester
+from TrajectoryAidedLearning.Planners.cDreamerPlanners import cDreamerTrainer, cDreamerTester
 
 from TrajectoryAidedLearning.Utils.RewardSignals import *
 from TrajectoryAidedLearning.Utils.StdTrack import StdTrack
@@ -22,6 +23,7 @@ import torch
 import numpy as np
 from math import ceil
 import time
+import cv2
 
 # settings
 SHOW_TRAIN = False
@@ -58,6 +60,8 @@ def select_agent(run, conf, architecture, train=True, init=False, ma_info=[0.0, 
         agent = DreamerV2Trainer(run, conf) if train else DreamerV2Tester(run, conf)
     elif agent_type == "DreamerV3":
         agent = DreamerV3Trainer(run, conf, init=init) if train else DreamerV3Tester(run, conf)
+    elif agent_type == "cDreamer":
+        agent = cDreamerTrainer(run, conf, init=init) if train else cDreamerTester(run, conf)
     elif agent_type == "DispExt":
         agent = DispExt(run, conf, ma_info=ma_info)
     else: raise Exception("Unknown agent type: " + agent_type)
@@ -165,9 +169,24 @@ class TestSimulation():
                 observations = self.reset_simulation()
                 target_obs = observations[0]
 
+
+                frame_list = []
+                fig, ax = plt.subplots()
                 while not target_obs['colision_done'] and not target_obs['lap_done'] and not target_obs['current_laptime'] > self.conf.max_laptime:
                     self.prev_obs = observations
-                    target_action = self.target_planner.plan(observations[0])
+                    target_action, recon = self.target_planner.plan(observations[0])
+
+                    ax.clear()
+                    ax.plot(recon)
+                    ax.plot(np.zeros((108,)) if self.target_planner.nn_state is None else self.target_planner.nn_state)
+                    ax.set_ylim(0, 1)
+
+                    # Save the frame as an image in memory
+                    fig.canvas.draw()
+                    img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+                    img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+                    frame_list.append(img)
+
                     if len(self.adv_planners) > 0:
                         adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
                         actions = np.concatenate((target_action.reshape(1, -1), adv_actions), axis=0)
@@ -177,6 +196,14 @@ class TestSimulation():
                     target_obs = observations[0]
 
                     if SHOW_TEST: self.env.render('human_fast')
+
+                frame_height, frame_width, _ = frame_list[0].shape
+                out = cv2.VideoWriter(f'recon_{i}.avi', cv2.VideoWriter_fourcc(*'XVID'), 10, (frame_width, frame_height))
+
+                for frame in frame_list:
+                    out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))  # Convert RGB to BGR for OpenCV
+
+                out.release()
 
                 self.target_planner.lap_complete()
                 self.progresses.append(target_obs['progress'])
@@ -398,11 +425,11 @@ def main():
     # run_file = "dev"
     # run_file = "SAC_lr"
     # run_file = "SAC_gamma"
-    run_file = "SAC_singleagent"
+    # run_file = "SAC_singleagent"
     # run_file = "SAC_multiagent_stationary"
     # run_file = "SAC_multiagent_nonstationary"
     # run_file = "dreamerv3_lr"
-    # run_file = "dreamerv3_singleagent"
+    run_file = "dreamerv3_singleagent"
     # run_file = "dreamerv3_multiagent_stationary"
     # run_file = "dreamerv3_multiagent_nonstationary"
     

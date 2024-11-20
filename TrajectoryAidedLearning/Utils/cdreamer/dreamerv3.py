@@ -91,17 +91,20 @@ class DreamerV3(nn.Module):
             plan2explore=lambda: expl.Plan2Explore(config, self._wm, reward),
         )[config.expl_behavior]().to(self._config.device)
 
-    def act(self, obs, action, latent, is_first=False, video=False):
+    def act(self, obs, action, latent, context=None, is_first=False, video=False):
         obs = {
             "is_first": np.array([1.0 if is_first else 0.0]),
             "image" : obs.reshape(1, -1),
             "action": action.reshape(1, -1) if not action is None else np.zeros((1, 2)) ,
+            "context": context.reshape(1, -1) if not context is None else np.zeros((1, 2)),
             "is_terminal": np.array([0.0])
         }
 
+
         obs, action, latent = self._wm.preprocess(obs), action.to(self._config.device) if not action is None else action, latent # .to(self._config.device) if not latent is None else latent
         embed = self._wm.encoder(obs)
-        latent, _ = self._wm.dynamics.obs_step(latent, action, embed, obs["is_first"])
+        dcontext = obs["context"] if self._wm.dynamics._add_dcontext else None
+        latent, _ = self._wm.dynamics.obs_step(latent, action, embed, obs["is_first"], dcontext=dcontext)
         if self._config.eval_state_mean:
             latent["stoch"] = latent["mean"]
         feat = self._wm.dynamics.get_feat(latent)
@@ -119,7 +122,7 @@ class DreamerV3(nn.Module):
             actor = self._expl_behavior.actor(feat)
             action = actor.sample()
         else:
-            actor = self._task_behavior.actor(feat)
+            actor = self._task_behavior.actor(feat, dcontext=dcontext)
             action = actor.sample()
         self._step += 1
         
@@ -211,13 +214,14 @@ class DreamerV3(nn.Module):
                 data[k] = v.squeeze(-1)
         post, context, mets = self._wm._train(data)
         metrics.update(mets)
+        context = {**data, **wm_outs["post"]}
         start = post
         reward = lambda f, s, a: self._wm.heads["reward"](
             self._wm.dynamics.get_feat(s)
         ).mode()
-        metrics.update(self._task_behavior._train(start, reward)[-1])
+        metrics.update(self._task_behavior._train(start, reward, context)[-1])
         if self._config.expl_behavior != "greedy":
-            mets = self._expl_behavior.train(start, context, data)[-1]
+            mets = self._expl_behavior.train(start, context, data, context)[-1]
             metrics.update({"expl_" + key: value for key, value in mets.items()})
         for name, value in metrics.items():
             if not name in self._metrics.keys():

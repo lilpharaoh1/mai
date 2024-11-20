@@ -1,5 +1,5 @@
 import numpy as np 
-from TrajectoryAidedLearning.Utils.dreamerv3.dreamerv3 import DreamerV3
+from TrajectoryAidedLearning.Utils.cdreamer.dreamerv3 import DreamerV3
 from TrajectoryAidedLearning.Utils.HistoryStructs import TrainHistory
 from TrajectoryAidedLearning.Utils.FastTransform import FastTransform
 import torch
@@ -8,7 +8,7 @@ from numba import njit
 from TrajectoryAidedLearning.Utils.utils import init_file_struct
 from matplotlib import pyplot as plt
 
-class DreamerV3Trainer: 
+class cDreamerTrainer: 
     def __init__(self, run, conf, init=False):
         self.run, self.conf = run, conf
         self.name = run.run_name
@@ -26,6 +26,8 @@ class DreamerV3Trainer:
 
         self.transform = FastTransform(run, conf)
 
+        # Multiagent Info
+        self.num_agents = run.num_agents
         self.agent = DreamerV3(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out, lr=run.lr)
 
         self.t_his = TrainHistory(run, conf, cont=not init)
@@ -128,7 +130,7 @@ class DreamerV3Trainer:
         self.t_his.save_csv_data()
         self.agent.save(self.path)
 
-class DreamerV3Tester:
+class cDreamerTester:
     def __init__(self, run, conf):
         """
         Testing vehicle using the reference modification navigation stack

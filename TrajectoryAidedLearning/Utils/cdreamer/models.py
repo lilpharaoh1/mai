@@ -46,7 +46,11 @@ class WorldModel(nn.Module):
         print("config.encoder :", config.encoder)
         self.encoder = networks.MultiEncoder(shapes, **config.encoder)
         self.encoder._mlp.to(config.device)
+        context_size = 0
+        if hasattr(config.rssm, "add_dcontext") and config.rssm.add_dcontext: # EMRAN check this
+            context_size = obs_space["context"].shape[0]
         self.embed_size = self.encoder.outdim
+        print("\n\n\n\n\n\n\ RSSM \n\n\n\n\n\n\n")
         self.dynamics = networks.RSSM(
             config.dyn_stoch,
             config.dyn_deter,
@@ -63,6 +67,7 @@ class WorldModel(nn.Module):
             act_space.flatten()[0], # config.num_actions,
             self.embed_size,
             config.device,
+            context_size=context_size,
         )
         self.heads = nn.ModuleDict()
         print("config.decoder :", config.decoder)
@@ -99,6 +104,14 @@ class WorldModel(nn.Module):
         )
         for name in config.grad_heads:
             assert name in self.heads, name
+        # EMRAN 
+        ## Use context head here in original implementaition
+        if hasattr(config, "use_context_head") and config.use_context_head:
+            assert config.rssm.add_dcontext
+            self.head["context"] = nets.MLP(
+                shapes["context"], **config.context_head, name="context"
+            )
+            assert "context" not in self.config.grad_heads
         self._model_opt = tools.Optimizer(
             "model",
             self.parameters(),
@@ -136,7 +149,7 @@ class WorldModel(nn.Module):
                 # print("Encoder :", time.time() - before)
                 # before = time.time()
                 post, prior = self.dynamics.observe(
-                    embed, data["action"], data["is_first"]
+                    embed, data["action"], data["is_first"], data["context"] if self.rssm._add_dcontext else None
                 )
                 # print("Dynamics Observe :", time.time() - before)
                 # before = time.time()
@@ -151,6 +164,8 @@ class WorldModel(nn.Module):
                 assert kl_loss.shape == embed.shape[:2], kl_loss.shape
                 preds = {}
                 for name, head in self.heads.items():
+                    if name == "context":
+                        print("\n\n\n\n\n\n ahhhhhh context head ahhhhh \n\n\n\n\n\n")
                     grad_head = name in self._config.grad_heads
                     feat = self.dynamics.get_feat(post)
                     feat = feat if grad_head else feat.detach()
@@ -184,6 +199,15 @@ class WorldModel(nn.Module):
         metrics["dyn_loss"] = to_np(dyn_loss)
         metrics["rep_loss"] = to_np(rep_loss)
         metrics["kl"] = to_np(torch.mean(kl_value))
+        if hasattr(self.config, "use_context_head") and self.config.use_context_head:
+            pure_context_head_fn = nj.pure(
+                lambda ctx: self.heads['context'](ctx), nested=True
+            )
+            context_head_state = self.heads["context"].getm()
+            adv_pred, _ = pure_context_head_fn(sg(context_head_state), nj.rng(), post)
+            losses["context_adv"] = -adv_pred.log_prob(
+                np.zeros_like(data['context'], np.float32)
+            )
         with torch.cuda.amp.autocast(self._use_amp):
             metrics["prior_ent"] = to_np(
                 torch.mean(self.dynamics.get_dist(prior).entropy())
@@ -325,9 +349,13 @@ class ImagBehavior(nn.Module):
         self,
         start,
         objective,
+        context
     ):
         self._update_slow_target()
         metrics = {}
+
+        if self._add_dcontext:
+            start['context'] = context['context']
 
         with tools.RequiresGrad(self.actor):
             with torch.cuda.amp.autocast(self._use_amp):
@@ -386,14 +414,22 @@ class ImagBehavior(nn.Module):
     def _imagine(self, start, policy, horizon):
         dynamics = self._world_model.dynamics
         flatten = lambda x: x.reshape([-1] + list(x.shape[2:]))
-        start = {k: flatten(v) for k, v in start.items()}
+        start = {k: flatten(v) for k, v in start.items() if k in keys or (self.rssm._add_dcontext and k=='context')}
 
         def step(prev, _):
+            print("EMRAN check what prev is :", prev)# EMRAN check if context in prev
             state, _, _ = prev
+            context_avail = "context" in state
+            context = (
+                state['context']
+                if context_avail and self.rssm._add_dcontext
+                else None
+            )
             feat = dynamics.get_feat(state)
             inp = feat.detach()
             action = policy(inp).sample()
-            succ = dynamics.img_step(state, action)
+            succ = dynamics.img_step(state, action, dcontext=dcontext)
+            succ = {**succ, context=context} if context_avail else succ
             return succ, feat, action
 
         succ, feats, actions = tools.static_scan(
@@ -430,6 +466,7 @@ class ImagBehavior(nn.Module):
         target,
         weights,
         base,
+        dcontext=None,
     ):
         metrics = {}
         inp = imag_feat.detach()

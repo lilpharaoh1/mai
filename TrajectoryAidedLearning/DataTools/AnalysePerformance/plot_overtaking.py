@@ -30,7 +30,7 @@ SAVE_PDF = True
 
 # LEGEND = False
 LEGEND = True
-LEGEND_LOC = "lower right"
+LEGEND_LOC = "upper left"
 
 ARCH_MAP = {
     0: None,
@@ -95,6 +95,7 @@ class AnalyseTestLapData:
             
         runs_folders = glob.glob(f"{folder}" + "Testing/*/")
         for j, run_folder in enumerate(runs_folders):
+            self.num_agents = 2 if j < 3 else 4 # self.run_data[j].num_agents
             print(f"{j}) {run_folder}")
             if not os.path.exists(run_folder + "TestingOvertaking/"): 
                 os.mkdir(run_folder + "TestingOvertaking/") 
@@ -125,7 +126,7 @@ class AnalyseTestLapData:
         plt.clf()
         lap_length = self.states.shape[1]
         window_start, window_end = int(lap_length * 0.0), int(lap_length * 1.0)
-        window_sparsity = 3
+        window_sparsity = 6
         legend_patches = []
         for agent_id in range(self.num_agents):
             points = self.states[agent_id, :, 0:2]
@@ -155,7 +156,7 @@ class AnalyseTestLapData:
             aoi = angles[window_start:window_end:window_sparsity]
             width, length = 10, 5
             for t, (x, y, angle) in enumerate(zip(poi[:, 0, 0], poi[:, 0, 1], aoi)):
-                plt.text(x + 5, y + 5, f"$t_{t}$", fontsize=3, ha='left', color=colors[agent_id])
+                plt.text(x + 5, y + 5, f"t{t}", fontsize=3, ha='left', color=colors[agent_id])
                 car = Rectangle(
                     (x - (width/2), y - (length/2)),
                     width, length,
