@@ -61,6 +61,12 @@ defaults:
   unimix_ratio: 0.01
   initial: 'learned'
 
+  # Context
+  add_dcontext: True
+  add_dcontext_prior: False
+  add_dcontext_posterior: False
+  context_size: 2
+
   # Training
   batch_size: 16
   batch_length: 64

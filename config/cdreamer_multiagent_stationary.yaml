@@ -1,7 +1,7 @@
-test_name: "cdreamer_singleagent"
+test_name: "cdreamer_multiagent_stationary"
 
-num_agents: 1
-target_position: 1
+# num_agents: 1
+# target_position: 1
 
 architecture: "cDreamer"
 window_in: 2
@@ -29,7 +29,12 @@ gamma: 0.85
 ma_info: [0.0, 0.0, 0.0, 0.0]
 
 runs:
-  - adversaries: []
+  - adversaries: ['PP']
+    num_agents: 2
+    target_position: 2
+  - adversaries: ['PP', 'PP', 'PP']
+    num_agents: 4
+    target_position: 4
 
 
 

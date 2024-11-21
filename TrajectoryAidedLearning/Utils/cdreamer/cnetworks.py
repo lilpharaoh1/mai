@@ -54,7 +54,6 @@ class RSSM(nn.Module):
         self._device = device
 
         # Context stuff
-        print("\n\n\n\n\n here... \n\n\n\n\n")
         self._add_dcontext = add_dcontext
         self._add_dcontext_prior = add_dcontext_prior
         self._add_dcontext_posterior = add_dcontext_posterior
@@ -134,7 +133,8 @@ class RSSM(nn.Module):
             return state
         elif self._initial == "learned":
             state["deter"] = torch.tanh(self.W).repeat(batch_size, 1)
-            if self.add_context_prior:
+            x = state["deter"]
+            if self._add_dcontext_prior:
                 x = np.concatenate([state["deter"], np.zeros((batch_size, self.context_size))])
             state["stoch"] = self.get_stoch(x)
             return state
@@ -144,16 +144,25 @@ class RSSM(nn.Module):
     def observe(self, embed, action, is_first, state=None, dcontext=None):
         swap = lambda x: x.permute([1, 0] + list(range(2, len(x.shape))))
         # (batch, time, ch) -> (time, batch, ch)
-        embed, action, is_first context = swap(embed), swap(action), swap(is_first), swap(dcontext) if self.add_dcontext else None
-        
+        embed, action, is_first, context = swap(embed), swap(action), swap(is_first), swap(dcontext) if self._add_dcontext else None
+
         # prev_state[0] means selecting posterior of return(posterior, prior) from obs_step
-        post, prior = tools.static_scan(
-            lambda prev_state, prev_act, embed, is_first, context: self.obs_step(
-                prev_state[0], prev_act, embed, is_first, context
-            ),
-            (action, embed, is_first, context),
-            (state, state),
-        )
+        if self._add_dcontext:
+            post, prior = tools.static_scan(
+                lambda prev_state, prev_act, embed, is_first, context: self.obs_step(
+                    prev_state[0], prev_act, embed, is_first, context
+                ),
+                (action, embed, is_first, context),
+                (state, state),
+            )
+        else:
+            post, prior = tools.static_scan(
+                lambda prev_state, prev_act, embed, is_first: self.obs_step(
+                    prev_state[0], prev_act, embed, is_first
+                ),
+                (action, embed, is_first),
+                (state, state),
+            )
         
         # (batch, time, stoch, discrete_num) -> (batch, time, stoch, discrete_num)
         post = {k: swap(v) for k, v in post.items()}
@@ -163,7 +172,7 @@ class RSSM(nn.Module):
     def imagine_with_action(self, action, state, dcontext=None):
         swap = lambda x: x.permute([1, 0] + list(range(2, len(x.shape))))
         assert isinstance(state, dict), state
-        action, context = swap(action), swap(dcontext) if self.add_dcontext else None
+        action, context = swap(action), swap(dcontext) if self._add_dcontext else None
         prior = tools.static_scan(self.img_step, [action, context], state)
         prior = prior[0]
         prior = {k: swap(v) for k, v in prior.items()}
@@ -214,7 +223,7 @@ class RSSM(nn.Module):
         prior = self.img_step(prev_state, prev_action, dcontext=dcontext)
         # print("in obs_step -> prior[deter], embed :", prior['deter'].shape, embed.shape)
         x = torch.cat([prior["deter"], embed.reshape(1, -1) if len(embed.shape) == 1 else embed], -1) # EMRAN check which one should be reshaped
-        if dcontext is not None and self.add_dcontext_posterior:
+        if dcontext is not None and self._add_dcontext_posterior:
             x = np.concatenate([x, dcontext], -1)
         # (batch_size, prior_deter + embed) -> (batch_size, hidden)
         x = self._obs_out_layers(x)
@@ -244,7 +253,7 @@ class RSSM(nn.Module):
             # (batch, hidden), (batch, deter) -> (batch, deter), (batch, deter)
             x, deter = self._cell(x, [deter])
             deter = deter[0]  # Keras wraps the state in a list.
-        if dcontext is not None and self.add_dcontext_posterior:
+        if dcontext is not None and self._add_dcontext_posterior:
             x = np.concatenate([x, dcontext], -1)
         # (batch, deter) -> (batch, hidden)
         x = self._img_out_layers(x)

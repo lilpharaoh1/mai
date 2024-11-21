@@ -144,9 +144,11 @@ class TrainSimulation(TestSimulation):
             ma_info = [speed_c, la_c] 
         self.adv_planners = [select_agent(run, self.conf, architecture, init=False, ma_info=ma_info) for architecture in run.adversaries] 
 
+
+        context = ma_info #if len(run.adversaries) > 0 else None
         for i in range(self.start_train_steps, self.n_train_steps):
             self.prev_obs = observations # used for calculating reward, so only wanst target_obs
-            target_action = self.target_planner.plan(target_obs)
+            target_action = self.target_planner.plan(target_obs, context=context)
             # target_action = np.array([0.0, 1.8]) + np.random.normal(scale=np.array([0.025, 0.2]))
             # target_action = np.array([0.0, 0.0])
             # print(f"colision_done : {[obs['colision_done'] for obs in observations]}")
@@ -199,7 +201,7 @@ class TrainSimulation(TestSimulation):
                     speed_c, la_c = np.random.uniform(-speed_val, speed_val), np.random.uniform(-la_val, la_val)
                     ma_info = [speed_c, la_c] 
                 self.adv_planners = [select_agent(run, self.conf, architecture, init=False, ma_info=ma_info) for architecture in run.adversaries] 
-
+                context = ma_info # if len(run.adversaries) > 0 else None
 
         train_time = time.time() - start_time
         print(f"Finished Training: {self.target_planner.name} in {train_time} seconds")

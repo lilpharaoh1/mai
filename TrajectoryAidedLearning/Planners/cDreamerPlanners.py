@@ -23,6 +23,7 @@ class cDreamerTrainer:
         self.nn_state = None
         self.nn_rssm = None
         self.nn_act = None
+        self.nn_context = None
 
         self.transform = FastTransform(run, conf)
 
@@ -37,7 +38,8 @@ class cDreamerTrainer:
         self.train = self.agent.train # alias for sss
         # self.save = self.agent.save # alias for sss
 
-    def plan(self, obs, add_mem_entry=True):
+    def plan(self, obs, context=None, add_mem_entry=True):
+        self.nn_context = np.array(context) if context else np.zeros((1, 2))
         nn_state = self.transform.transform_obs(obs)
         if add_mem_entry:
             self.add_memory_entry(obs)
@@ -52,7 +54,7 @@ class cDreamerTrainer:
         self.nn_state = nn_state # after to prevent call before check for v_min_plan
         # if self.nn_act is None:
         #     print("self.nn_act is None!!!!!")
-        self.nn_act, self.nn_rssm = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, is_first=True if self.nn_act is None else False)
+        self.nn_act, self.nn_rssm = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, context=self.nn_context, is_first=True if self.nn_act is None else False)
         self.nn_act = self.nn_act.cpu().squeeze(0)
 
         if np.isnan(self.nn_act).any():
@@ -75,6 +77,7 @@ class cDreamerTrainer:
             transition['image'] = np.array(self.nn_state)
             transition['action'] = np.array(self.nn_act)
             transition['reward'] = np.array(obs['reward'])
+            transition['context'] = np.array(self.nn_context)
             transition['is_terminal'] = np.array(0.0 if not done else 1.0)
             
             if eps_name not in self.agent.buffer_eps:

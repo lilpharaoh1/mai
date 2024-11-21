@@ -14,7 +14,7 @@ import yaml # import ruamel.yaml as yaml
 sys.path.append(str(pathlib.Path(__file__).parent))
 
 import exploration as expl
-import models
+import cmodels
 import tools
 import envs.wrappers as wrappers
 from parallel import Parallel, Damy
@@ -77,8 +77,8 @@ class DreamerV3(nn.Module):
         self._step = 0 # logger.step // config.action_repeat
         self._update_count = 0
         self._dataset = None
-        self._wm = models.WorldModel(obs_space, act_space, self._step, config)
-        self._task_behavior = models.ImagBehavior(config, self._wm).to(self._config.device)
+        self._wm = cmodels.WorldModel(obs_space, act_space, self._step, config)
+        self._task_behavior = cmodels.ImagBehavior(config, self._wm).to(self._config.device)
         if (
             config.compile and os.name != "nt"
         ):  # compilation is not supported on windows
@@ -122,7 +122,7 @@ class DreamerV3(nn.Module):
             actor = self._expl_behavior.actor(feat)
             action = actor.sample()
         else:
-            actor = self._task_behavior.actor(feat, dcontext=dcontext)
+            actor = self._task_behavior.actor(feat)
             action = actor.sample()
         self._step += 1
         
@@ -190,7 +190,6 @@ class DreamerV3(nn.Module):
             actor = self._task_behavior.actor(feat)
             action = actor.sample()
             self._step += 1
-            print("\n\n\n\n\n\n Down here...")
         logprob = actor.log_prob(action)
         latent = {k: v.detach() for k, v in latent.items()}
         action = action.detach()
@@ -214,14 +213,13 @@ class DreamerV3(nn.Module):
                 data[k] = v.squeeze(-1)
         post, context, mets = self._wm._train(data)
         metrics.update(mets)
-        context = {**data, **wm_outs["post"]}
         start = post
         reward = lambda f, s, a: self._wm.heads["reward"](
             self._wm.dynamics.get_feat(s)
         ).mode()
-        metrics.update(self._task_behavior._train(start, reward, context)[-1])
+        metrics.update(self._task_behavior._train(start, reward, data['context'])[-1])
         if self._config.expl_behavior != "greedy":
-            mets = self._expl_behavior.train(start, context, data, context)[-1]
+            mets = self._expl_behavior.train(start, context, data)[-1]
             metrics.update({"expl_" + key: value for key, value in mets.items()})
         for name, value in metrics.items():
             if not name in self._metrics.keys():
