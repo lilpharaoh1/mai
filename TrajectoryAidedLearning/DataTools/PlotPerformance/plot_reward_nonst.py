@@ -39,7 +39,7 @@ class AnalyseTestLapData:
                 indv_succ = self.find_succ(folder)
                 run_succ = np.concatenate([run_succ, indv_succ])
                 self.plot_succ_mat(indv_succ, save_path=f'{folder}reward_{idx}')
-            self.plot_succ_mat(np.mean(run_succ, axis=0).reshape(1, 7, 7), save_path=f'{path}avg_reward_{run_num}')
+            self.plot_succ_mat(np.mean(run_succ, axis=0).reshape(1, 7, 7), save_path=f'{run_names[run_num]}reward')
 
 
 
