@@ -12,6 +12,7 @@ from TrajectoryAidedLearning.Planners.SACPlanners import SACTrainer, SACTester
 from TrajectoryAidedLearning.Planners.DreamerV2Planners import DreamerV2Trainer, DreamerV2Tester
 from TrajectoryAidedLearning.Planners.DreamerV3Planners import DreamerV3Trainer, DreamerV3Tester
 from TrajectoryAidedLearning.Planners.cDreamerPlanners import cDreamerTrainer, cDreamerTester
+from TrajectoryAidedLearning.Planners.cfDreamerPlanners import cfDreamerTrainer, cfDreamerTester
 
 from TrajectoryAidedLearning.Utils.RewardSignals import *
 from TrajectoryAidedLearning.Utils.StdTrack import StdTrack
@@ -54,6 +55,8 @@ def select_agent(run, conf, architecture, train=True, init=False, ma_info=[0.0, 
         agent = DreamerV3Trainer(run, conf, init=init) if train else DreamerV3Tester(run, conf)
     elif agent_type == "cDreamer":
         agent = cDreamerTrainer(run, conf, init=init) if train else cDreamerTester(run, conf)
+    elif agent_type == "cfDreamer":
+        agent = cfDreamerTrainer(run, conf, init=init) if train else cfDreamerTester(run, conf)
     elif agent_type == "DispExt":
         agent = DispExt(run, conf, ma_info=ma_info)
     else: raise Exception("Unknown agent type: " + agent_type)
@@ -144,7 +147,6 @@ class TrainSimulation(TestSimulation):
             ma_info = [speed_c, la_c] 
         self.adv_planners = [select_agent(run, self.conf, architecture, init=False, ma_info=ma_info) for architecture in run.adversaries] 
 
-
         context = ma_info #if len(run.adversaries) > 0 else None
         for i in range(self.start_train_steps, self.n_train_steps):
             self.prev_obs = observations # used for calculating reward, so only wanst target_obs
@@ -226,7 +228,8 @@ def main():
     run_file = "cdreamer_singleagent"
     # run_file = "cdreamer_multiagent_stationary"
     # run_file = "cdreamer_multiagent_nonstationary"
-    
+    # run_file = "cfdreamer_multiagent_nonstationary"
+
 
     sim = TrainSimulation(run_file)
     sim.run_training_evaluation()

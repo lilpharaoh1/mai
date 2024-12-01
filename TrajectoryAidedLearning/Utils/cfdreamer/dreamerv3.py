@@ -14,7 +14,7 @@ import yaml # import ruamel.yaml as yaml
 sys.path.append(str(pathlib.Path(__file__).parent))
 
 import exploration as expl
-import cmodels
+import cfmodels as cmodels
 import tools
 import envs.wrappers as wrappers
 from parallel import Parallel, Damy
@@ -27,8 +27,6 @@ to_np = lambda x: x.detach().cpu().numpy()
 
 # class DreamBuffer:
     # def __init__(self):
-
-
 
 class DreamerV3(nn.Module):
     def __init__(self, obs_space, act_space, name, max_action=1, window_in=1, window_out=1, multiagent=True, lr=None):
@@ -77,6 +75,7 @@ class DreamerV3(nn.Module):
         self._step = 0 # logger.step // config.action_repeat
         self._update_count = 0
         self._dataset = None
+        self.last_frame = None
         self._wm = cmodels.WorldModel(obs_space, act_space, self._step, config)
         self._task_behavior = cmodels.ImagBehavior(config, self._wm).to(self._config.device)
         if (
@@ -91,16 +90,26 @@ class DreamerV3(nn.Module):
             plan2explore=lambda: expl.Plan2Explore(config, self._wm, reward),
         )[config.expl_behavior]().to(self._config.device)
 
+
+
+        self._backward_model = cmodels.ForwardModel(obs_space, act_space, config)
+        self._forward_model = cmodels.ForwardModel(obs_space, act_space, config)
+        self._ctx_encoder = cmodels.ContextEncoder(obs_space, config)
+
+
     def act(self, obs, action, latent, context=None, is_first=False, video=False):
         obs = {
             "is_first": np.array([1.0 if is_first else 0.0]),
             "image" : obs.reshape(1, -1),
             "action": action.reshape(1, -1) if not action is None else np.zeros((1, 2)) ,
-            "context": context.reshape(1, -1) if not context is None else np.zeros((1, 2)),
+            # "context": context.reshape(1, -1) if not context is None else np.zeros((1, 2)),
             "is_terminal": np.array([0.0])
         }
 
+
         obs, action, latent = self._wm.preprocess(obs), action.to(self._config.device) if not action is None else action, latent # .to(self._config.device) if not latent is None else latent
+        obs['context'] = self._ctx_encoder(obs['image'])
+        
         embed = self._wm.encoder(obs)
         dcontext = obs["context"] if self._wm.dynamics._add_dcontext else None
         latent, _ = self._wm.dynamics.obs_step(latent, action, embed, obs["is_first"], dcontext=dcontext)

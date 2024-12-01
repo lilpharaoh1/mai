@@ -5,10 +5,12 @@ import numpy as np
 
 import time
 
-import cnetworks
+import cfnetworks
 import tools
 
 to_np = lambda x: x.detach().cpu().numpy()
+
+CONTEXT_SIZE = 64
 
 
 class RewardEMA:
@@ -28,6 +30,71 @@ class RewardEMA:
         offset = ema_vals[0]
         return offset.detach(), scale.detach()
 
+class ForwardModel(nn.Module):
+    def __init__(self, obs_space, act_space, config, device='cuda'):
+        super(ForwardModel, self).__init__()
+        self.layers = nn.Sequential()
+
+        obs_size = obs_space[0][0]
+        act_size = act_space[0][0]
+        ctx_size = CONTEXT_SIZE
+
+        print("obs_size, act_size, ctx_size :", obs_size, act_size, ctx_size)
+    
+        # Block One
+        self.layers.add_module(f"ctxenc_linear0", nn.Linear(obs_size + act_size + ctx_size, 256, bias=False).to(device))
+        self.layers.add_module(f"ctxenc_norm0", nn.LayerNorm(256, eps=1e-03).to(device))
+        self.layers.add_module(f"ctxenc_act0", nn.SiLU())
+        
+        # Block Two
+        self.layers.add_module(f"ctxenc_linear1", nn.Linear(256, 256, bias=False).to(device))
+        self.layers.add_module(f"ctxenc_norm1", nn.LayerNorm(256, eps=1e-03).to(device))
+        self.layers.add_module(f"ctxenc_act1", nn.SiLU())
+
+        # Out Block
+        self.layers.add_module(f"ctxenc_linear_out", nn.Linear(256, obs_size, bias=False).to(device))
+        self.layers.add_module(f"ctxenc_act_out", nn.SiLU())
+
+        print("finished ForwardModel init")
+
+    def forward(self, obs, action, context):
+        x = torch.concatenate([obs, action, context], -1) 
+        print("forward_model, x :", x.shape)
+        x = self.layers(x)
+
+        return x
+
+class ContextEncoder(nn.Module):
+    def __init__(self, obs_space, config, device='cuda'):
+        super(ContextEncoder, self).__init__()
+        self.layers = nn.Sequential()
+    
+        # obs_size = obs_space[0][0]
+        # ctx_size = CONTEXT_SIZE
+
+        # Block One
+        self.layers.add_module(f"ctxenc_linear0", nn.Linear(obs_size, 256, bias=False).to(device))
+        self.layers.add_module(f"ctxenc_norm0", nn.LayerNorm(256, eps=1e-03).to(device))
+        self.layers.add_module(f"ctxenc_act0", nn.SiLU())
+        
+        # Block Two
+        self.layers.add_module(f"ctxenc_linear1", nn.Linear(256, 256, bias=False).to(device))
+        self.layers.add_module(f"ctxenc_norm1", nn.LayerNorm(256, eps=1e-03).to(device))
+        self.layers.add_module(f"ctxenc_act1", nn.SiLU())
+
+        # Out Block
+        self.layers.add_module(f"ctxenc_linear_out", nn.Linear(256, ctx_size, bias=False).to(device))
+        self.layers.add_module(f"ctxenc_act_out", nn.SiLU())
+
+        print("finished ContextEncoder init")
+
+    def forward(self, obs):
+        # x = torch.concatenate([x1, x2], -1) 
+        # print("x :", x.shape)
+        x = self.layers(obs)
+
+        return x
+
 
 class WorldModel(nn.Module):
     def __init__(self, obs_space, act_space, step, config):
@@ -41,16 +108,16 @@ class WorldModel(nn.Module):
             'image': (108,),
             'action': (2,),
             'reward': (1,),
-            'context': (2,),
+            'context': (CONTEXT_SIZE,),
             'is_terminal': (1,)
         }
         print("config.encoder :", config.encoder)
-        self.encoder = cnetworks.MultiEncoder(shapes, **config.encoder)
+        self.encoder = cfnetworks.MultiEncoder(shapes, **config.encoder)
         self.encoder._mlp.to(config.device)
         if hasattr(config, "add_dcontext") and config.add_dcontext: # EMRAN check this
-            context_size = 2 # obs_space["context"].shape[0]
+            context_size = CONTEXT_SIZE # obs_space["context"].shape[0]
         self.embed_size = self.encoder.outdim
-        self.dynamics = cnetworks.RSSM(
+        self.dynamics = cfnetworks.RSSM(
             config.dyn_stoch,
             config.dyn_deter,
             config.dyn_hidden,
@@ -79,10 +146,10 @@ class WorldModel(nn.Module):
             feat_size = config.dyn_stoch + config.dyn_deter
         if config.add_dcontext:
             feat_size += context_size
-        self.heads["decoder"] = cnetworks.MultiDecoder(
+        self.heads["decoder"] = cfnetworks.MultiDecoder(
             feat_size, shapes, **config.decoder
         )
-        self.heads["reward"] = cnetworks.MLP(
+        self.heads["reward"] = cfnetworks.MLP(
             feat_size,
             (255,) if config.reward_head["dist"] == "symlog_disc" else (),
             config.reward_head["layers"],
@@ -94,7 +161,7 @@ class WorldModel(nn.Module):
             device=config.device,
             name="Reward",
         )
-        self.heads["cont"] = cnetworks.MLP(
+        self.heads["cont"] = cfnetworks.MLP(
             feat_size,
             (),
             config.cont_head["layers"],
@@ -144,6 +211,7 @@ class WorldModel(nn.Module):
         # discount (batch_size, batch_length)
         data = self.preprocess(data)
         dcontext = data['context']
+        print(dcontext.shape)
 
         # print("self.preprocess(data) :", time.time() - before)
         # before = time.time()
@@ -294,7 +362,7 @@ class ImagBehavior(nn.Module):
         if self._add_dcontext:
             feat_size += world_model.dynamics.context_size
 
-        self.actor = cnetworks.MLP(
+        self.actor = cfnetworks.MLP(
             feat_size,
             (config.num_actions,),
             config.actor["layers"],
@@ -312,7 +380,7 @@ class ImagBehavior(nn.Module):
             device=config.device,
             name="Actor",
         )
-        self.value = cnetworks.MLP(
+        self.value = cfnetworks.MLP(
             feat_size,
             (255,) if config.critic["dist"] == "symlog_disc" else (),
             config.critic["layers"],

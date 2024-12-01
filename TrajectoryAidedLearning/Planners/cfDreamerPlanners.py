@@ -1,5 +1,5 @@
 import numpy as np 
-from TrajectoryAidedLearning.Utils.cdreamer.dreamerv3 import DreamerV3
+from TrajectoryAidedLearning.Utils.cfdreamer.dreamerv3 import DreamerV3
 from TrajectoryAidedLearning.Utils.HistoryStructs import TrainHistory
 from TrajectoryAidedLearning.Utils.FastTransform import FastTransform
 import torch
@@ -8,7 +8,7 @@ from numba import njit
 from TrajectoryAidedLearning.Utils.utils import init_file_struct
 from matplotlib import pyplot as plt
 
-class cDreamerTrainer: 
+class cfDreamerTrainer: 
     def __init__(self, run, conf, init=False):
         self.run, self.conf = run, conf
         self.name = run.run_name
@@ -133,7 +133,7 @@ class cDreamerTrainer:
         self.t_his.save_csv_data()
         self.agent.save(self.path)
 
-class cDreamerTester:
+class cfDreamerTester:
     def __init__(self, run, conf):
         """
         Testing vehicle using the reference modification navigation stack

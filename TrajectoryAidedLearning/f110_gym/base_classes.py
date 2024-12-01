@@ -574,7 +574,9 @@ class Simulator(object):
             'ang_vels_z': [],
             'steering_deltas': [],
             'full_states': [],
-            'collisions': self.collisions}
+            'collisions': self.collisions,
+            'collisions_idx': self.collision_idx 
+            }
         for i, agent in enumerate(self.agents):
             observations['scans'].append(agent_scans[i])
             observations['poses_x'].append(agent.state[0])
