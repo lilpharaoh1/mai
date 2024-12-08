@@ -12,6 +12,8 @@ from TrajectoryAidedLearning.Planners.SACPlanners import SACTrainer, SACTester
 from TrajectoryAidedLearning.Planners.DreamerV2Planners import DreamerV2Trainer, DreamerV2Tester
 from TrajectoryAidedLearning.Planners.DreamerV3Planners import DreamerV3Trainer, DreamerV3Tester
 from TrajectoryAidedLearning.Planners.cDreamerPlanners import cDreamerTrainer, cDreamerTester
+from TrajectoryAidedLearning.Planners.cbDreamerPlanners import cbDreamerTrainer, cbDreamerTester
+from TrajectoryAidedLearning.Planners.cobDreamerPlanners import cobDreamerTrainer, cobDreamerTester
 from TrajectoryAidedLearning.Planners.cfDreamerPlanners import cfDreamerTrainer, cfDreamerTester
 
 from TrajectoryAidedLearning.Utils.RewardSignals import *
@@ -55,6 +57,10 @@ def select_agent(run, conf, architecture, train=True, init=False, ma_info=[0.0, 
         agent = DreamerV3Trainer(run, conf, init=init) if train else DreamerV3Tester(run, conf)
     elif agent_type == "cDreamer":
         agent = cDreamerTrainer(run, conf, init=init) if train else cDreamerTester(run, conf)
+    elif agent_type == "cbDreamer":
+        agent = cbDreamerTrainer(run, conf, init=init) if train else cbDreamerTester(run, conf)
+    elif agent_type == "cobDreamer":
+        agent = cobDreamerTrainer(run, conf, init=init) if train else cobDreamerTester(run, conf)
     elif agent_type == "cfDreamer":
         agent = cfDreamerTrainer(run, conf, init=init) if train else cfDreamerTester(run, conf)
     elif agent_type == "DispExt":
@@ -225,11 +231,12 @@ def main():
     # run_file = "dreamerv3_singleagent"
     # run_file = "dreamerv3_multiagent_stationary"
     # run_file = "dreamerv3_multiagent_nonstationary"
-    run_file = "cdreamer_singleagent"
+    # run_file = "cdreamer_singleagent"
     # run_file = "cdreamer_multiagent_stationary"
     # run_file = "cdreamer_multiagent_nonstationary"
     # run_file = "cfdreamer_multiagent_nonstationary"
-
+    run_file = "cbdreamer_multiagent_nonstationary"
+    # run_file = "cobdreamer_multiagent_nonstationary"
 
     sim = TrainSimulation(run_file)
     sim.run_training_evaluation()

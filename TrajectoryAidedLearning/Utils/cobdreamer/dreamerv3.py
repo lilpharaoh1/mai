@@ -14,7 +14,7 @@ import yaml # import ruamel.yaml as yaml
 sys.path.append(str(pathlib.Path(__file__).parent))
 
 import exploration as expl
-import cfmodels as cmodels
+import cobmodels as cmodels
 import tools
 import envs.wrappers as wrappers
 from parallel import Parallel, Damy
@@ -28,13 +28,15 @@ to_np = lambda x: x.detach().cpu().numpy()
 # class DreamBuffer:
     # def __init__(self):
 
+
+
 class DreamerV3(nn.Module):
     def __init__(self, obs_space, act_space, name, max_action=1, window_in=1, window_out=1, multiagent=True, lr=None):
         super(DreamerV3, self).__init__()
         torch.use_deterministic_algorithms(False)
         self.name = name
 
-        full_path = "TrajectoryAidedLearning/Utils/cfdreamer/configs.yaml"  
+        full_path = "TrajectoryAidedLearning/Utils/cobdreamer/configs.yaml"  
         with open(full_path) as file:
             config = yaml.load(file, Loader=yaml.FullLoader) # Load config
 
@@ -75,7 +77,6 @@ class DreamerV3(nn.Module):
         self._step = 0 # logger.step // config.action_repeat
         self._update_count = 0
         self._dataset = None
-        self.last_frame = None
         self._wm = cmodels.WorldModel(obs_space, act_space, self._step, config)
         self._task_behavior = cmodels.ImagBehavior(config, self._wm).to(self._config.device)
         if (
@@ -90,33 +91,29 @@ class DreamerV3(nn.Module):
             plan2explore=lambda: expl.Plan2Explore(config, self._wm, reward),
         )[config.expl_behavior]().to(self._config.device)
 
-        # self._ctx_encoder = cmodels.ContextEncoder(obs_space, config)
-        # self._ctx_opt = tools.Optimizer(
-        #     "ctx_encoder",
-        #     self.ctx_encoder.parameters(),
-        #     config.ctx_encoder["lr"],
-        #     config.ctx_encoder["eps"],
-        #     config.ctx_encoder["grad_clip"],
-        #     config.weight_decay,
-        #     opt=config.opt,
-        #     use_amp=self._wm._use_amp,
-        # )
+        # Context Mask
+        # self._ctx_mask = cmodels.CtxMask(obs_space, config)
 
     def act(self, obs, action, latent, context=None, is_first=False, video=False):
         obs = {
             "is_first": np.array([1.0 if is_first else 0.0]),
             "image" : obs.reshape(1, -1),
             "action": action.reshape(1, -1) if not action is None else np.zeros((1, 2)) ,
-            # "context": context.reshape(1, -1) if not context is None else np.zeros((1, 2)),
+            "context": context.reshape(1, -1) if not context is None else np.zeros((1, 2)),
             "is_terminal": np.array([0.0])
         }
 
-
         obs, action, latent = self._wm.preprocess(obs), action.to(self._config.device) if not action is None else action, latent # .to(self._config.device) if not latent is None else latent
-        obs['context'] = self._wm._ctx_encoder(obs['image'])
-        
         embed = self._wm.encoder(obs)
-        dcontext = obs["context"] if self._wm.dynamics._add_dcontext else None
+        dcontext = None
+        if self._wm.dynamics._add_dcontext:
+            ctx_mask = self._wm._ctx_mask(obs['image'])
+            dcontext = obs['context'] * ctx_mask
+
+            # Reshape for context buffer
+            ctx_mask = ctx_mask.cpu().reshape(1, -1)
+
+        # dcontext = obs["context"] if self._wm.dynamics._add_dcontext else None
         latent, _ = self._wm.dynamics.obs_step(latent, action, embed, obs["is_first"], dcontext=dcontext)
         if self._config.eval_state_mean:
             latent["stoch"] = latent["mean"]
@@ -148,7 +145,7 @@ class DreamerV3(nn.Module):
         state = (latent, action)
         if video:
             return action, latent, recon
-        return action, latent
+        return action, latent, ctx_mask
         # return policy_output, state
  
 
@@ -216,15 +213,16 @@ class DreamerV3(nn.Module):
         return policy_output, state
 
     def train(self):
-        if len(self.buffer_eps.keys()) < self._config.batch_size * 2:
+        if len(self.buffer_eps.keys()) < 1: #self._config.batch_size * 2:
             return
         metrics = {}
         self._dataset = make_dataset(self.buffer_eps, self._config)
         data = next(self._dataset)
-        if self._wm.dynamics._add_dcontext:
-            b, t, o = data['image'].shape
-            context = self._wm._ctx_encoder(torch.tensor(data['image'].reshape(-1, o), dtype=torch.float32).to(self._config.device))
-            data['context'] = context.detach().cpu().numpy().reshape(b, t, -1)
+        # if self._wm.dynamics._add_dcontext:
+        #     b, t, o = data['image'].shape
+        #     ctx_mask = self._ctx_mask(torch.tensor(data['image'].reshape(-1, o), dtype=torch.float32).to(self._config.device))
+        #     ctx_mask[ctx_mask >= 0.5], ctx_mask[ctx_mask<0.5] = 1.0, 0.0
+        #     data["context"] *= ctx_mask
         # unsqueeze is_frist, is_terminal and reward EMRAN hack fix again
         for k, v in data.items():
             if v.shape[-1] == 1:

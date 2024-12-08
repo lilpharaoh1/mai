@@ -5,13 +5,18 @@ import numpy as np
 
 import time
 
-import cfnetworks
-import cftools as tools
+import cobnetworks as cnetworks
+import cobtools as tools
 
 to_np = lambda x: x.detach().cpu().numpy()
+CONTEXT_SIZE = 2
+POLICY_FREQUENCY = 2
+tau = 0.005
 
-CONTEXT_SIZE = 64
-
+def weights_init_(m):
+    if isinstance(m, nn.Linear):
+        torch.nn.init.xavier_uniform_(m.weight, gain=1)
+        torch.nn.init.constant_(m.bias, 0)
 
 class RewardEMA:
     """running mean and std"""
@@ -30,67 +35,196 @@ class RewardEMA:
         offset = ema_vals[0]
         return offset.detach(), scale.detach()
 
-class ForwardModel(nn.Module):
-    def __init__(self, obs_space, act_space, config, device='cuda'):
-        super(ForwardModel, self).__init__()
-        self.layers = nn.Sequential()
+class QNetwork(nn.Module):
+    def __init__(self, num_inputs, num_actions, hidden_dim):
+        super(QNetwork, self).__init__()
 
-        obs_size = obs_space[0][0]
-        act_size = act_space[0][0]
-        ctx_size = CONTEXT_SIZE
-        layer_size = 256
-        self.out_dim = obs_size
-        self.epsilon = 1e-12
-    
-        # Block One
-        self.layers.add_module(f"ctxenc_linear0", nn.Linear(obs_size + act_size + ctx_size, layer_size, bias=False).to(device))
-        self.layers.add_module(f"ctxenc_norm0", nn.LayerNorm(layer_size, eps=1e-03).to(device))
-        self.layers.add_module(f"ctxenc_act0", nn.SiLU())
+        # Q1 architecture
+        self.linear1 = nn.Linear(num_inputs + num_actions + CONTEXT_SIZE, hidden_dim)
+        self.linear2 = nn.Linear(hidden_dim, hidden_dim)
+        self.linear3 = nn.Linear(hidden_dim, 1)
+
+        # Q2 architecture
+        self.linear4 = nn.Linear(num_inputs + num_actions + CONTEXT_SIZE, hidden_dim)
+        self.linear5 = nn.Linear(hidden_dim, hidden_dim)
+        self.linear6 = nn.Linear(hidden_dim, 1)
+
+        self.apply(weights_init_)
+
+    def forward(self, state, action, context):
+        xu = torch.cat([state, action, context], -1)
         
-        # Block Two
-        self.layers.add_module(f"ctxenc_linear1", nn.Linear(layer_size, layer_size, bias=False).to(device))
-        self.layers.add_module(f"ctxenc_norm1", nn.LayerNorm(layer_size, eps=1e-03).to(device))
-        self.layers.add_module(f"ctxenc_act1", nn.SiLU())
+        x1 = nn.functional.relu(self.linear1(xu))
+        x1 = nn.functional.relu(self.linear2(x1))
+        x1 = self.linear3(x1)
 
-        # Out Block
-        self.layers.add_module(f"ctxenc_linear_out", nn.Linear(layer_size, 2 * obs_size, bias=False).to(device))
-        self.layers.add_module(f"ctxenc_act_out", nn.SiLU())
+        x2 = nn.functional.relu(self.linear4(xu))
+        x2 = nn.functional.relu(self.linear5(x2))
+        x2 = self.linear6(x2)
 
-
-    def forward(self, obs, action, context):
-        x = torch.concatenate([obs, action, context], -1) 
-        x = self.layers(x) + self.epsilon
-
-        return {"mean": x[:, :self.out_dim], "var": x[:, self.out_dim:]}
-
-class ContextEncoder(nn.Module):
-    def __init__(self, obs_space, config, k=1, device='cuda'):
-        super(ContextEncoder, self).__init__()
-        self.layers = nn.Sequential()
+        return x1, x2
     
-        obs_size = obs_space[0][0]
-        ctx_size = CONTEXT_SIZE
-        layer_size = 256
-        self.k=k
+    def to(self, device):
+        # self.action_scale = self.action_scale.to(device)
+        # self.action_bias = self.action_bias.to(device)
+        # self.noise = self.noise.to(device)
+        return super(QNetwork, self).to(device)
 
-        # Block One
-        self.layers.add_module(f"ctxenc_linear0", nn.Linear(k * obs_size, layer_size, bias=False).to(device))
-        self.layers.add_module(f"ctxenc_norm0", nn.LayerNorm(layer_size, eps=1e-03).to(device))
-        self.layers.add_module(f"ctxenc_act0", nn.SiLU())
+class GaussianPolicy(nn.Module):
+    def __init__(self, num_inputs, num_actions, max_action, hidden_dim, action_space=None):
+        super(GaussianPolicy, self).__init__()
         
-        # Block Two
-        self.layers.add_module(f"ctxenc_linear1", nn.Linear(layer_size, layer_size, bias=False).to(device))
-        self.layers.add_module(f"ctxenc_norm1", nn.LayerNorm(layer_size, eps=1e-03).to(device))
-        self.layers.add_module(f"ctxenc_act1", nn.SiLU())
+        self.linear1 = nn.Linear(num_inputs, hidden_dim)
+        self.linear2 = nn.Linear(hidden_dim, hidden_dim)
 
-        # Out Block
-        self.layers.add_module(f"ctxenc_linear_out", nn.Linear(layer_size, ctx_size, bias=False).to(device))
-        self.layers.add_module(f"ctxenc_act_out", nn.SiLU())
+        self.mean_linear = nn.Linear(hidden_dim, num_actions)
+        self.log_std_linear = nn.Linear(hidden_dim, num_actions)
+
+        self.apply(weights_init_)
+
+        self.max_action = max_action
+        if action_space is None:
+            self.action_scale = torch.tensor(1.)
+            self.action_bias = torch.tensor(0.)
+        else:
+            self.action_scale = torch.FloatTensor(
+                (action_space.high - action_space.low) / 2.)
+            self.action_bias = torch.FloatTensor(
+                (action_space.high + action_space.low) / 2.)
+
+    def forward(self, state):
+        x = nn.functional.relu(self.linear1(state))
+        x = nn.functional.relu(self.linear2(x))
+        mean = self.mean_linear(x)
+        log_std = self.log_std_linear(x)
+        log_std = torch.clamp(log_std, min=-20, max=2)
+        return mean, log_std
+
+    def sample(self, state):
+        mean, log_std = self.forward(state)
+        std = log_std.exp()
+        normal = torch.distributions.Normal(mean, std)
+        x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
+        y_t = torch.tanh(x_t)
+        action = y_t * self.action_scale + self.action_bias
+        log_prob = normal.log_prob(x_t)
+        # Enforcing Action Bound
+        log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
+        log_prob = log_prob.sum(1, keepdim=True)
+        mean = torch.tanh(mean) * self.action_scale + self.action_bias
+        return action, log_prob, mean
+
+    def to(self, device):
+        self.action_scale = self.action_scale.to(device)
+        self.action_bias = self.action_bias.to(device)
+        return super(GaussianPolicy, self).to(device)
+
+class CtxMask(nn.Module):
+    def __init__(self, obs_space, act_space, config, k=1, device='cuda'):
+        super(CtxMask, self).__init__()   
+        obs_space = obs_space[0][0]
+        act_space = act_space[0][0] 
+        h_size = 256
+        window_in = 1
+        window_out = 1
+        lr = config.ctx_mask['lr'] # 0.0001
+
+        self.alpha = 0.2
+        self.gamma = 0.99
+        self.it = 0
+        self.automatic_entropy_tuning = True
+        self.lr = config.ctx_mask['lr']
+
+        self.critic = QNetwork(obs_space, act_space, h_size)
+        self.critic_target = QNetwork(obs_space, act_space, h_size)
+        self.critic_target.load_state_dict(self.critic.state_dict())
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr)
+
+        if self.automatic_entropy_tuning is True:
+                self.target_entropy = -torch.prod(torch.Tensor((act_space, 1))).item() # EMRAN, may have to be (2,1) instead of (2,)
+                self.log_alpha = torch.zeros(1, requires_grad=True)
+                self.alpha_optim = torch.optim.Adam([self.log_alpha], lr=self.lr)
+        self.policy = GaussianPolicy(obs_space, act_space, 1, h_size)
+        self.policy_optim = torch.optim.Adam(self.policy.parameters(), lr=lr)
+    
+    def forward(self, state, noise=0.1):
+        action, _, _ = self.policy.sample(state) # action, log_prob, mean
+        action = nn.functional.sigmoid(action.data) #.numpy().flatten()
+        # if noise != 0: 
+        #     action = (action + np.random.normal(0, noise, size=self.act_dim))
+            
+        return action.clip(0, 1)
+
+    def _train(self, data):
+        b, t, _ = data['image'].shape
+        states = data['image'][:, :-1].reshape(-1, data['image'].shape[-1])
+        next_states = data['image'][:, 1:].reshape(-1, data['image'].shape[-1])
+        rewards = data['reward'][:, 1:].reshape(-1, 1)
+        masks = data['mask'][:, :-1].reshape(-1, data['mask'].shape[-1])
+        contexts = data['context'][:, :-1].reshape(-1, data['context'].shape[-1])
+        next_contexts = data['context'][:, 1:].reshape(-1, data['context'].shape[-1])
+
+        with torch.no_grad():
+            # Select action according to policy and add clipped noise (for exploration) 
+            next_action, next_state_log_pi, _ = self.policy.sample(next_states)
+            next_action = next_action.clamp(0.0, 1.0)
+            # Compute the target Q value
+            target_Q1, target_Q2 = self.critic_target(next_states, next_action, next_contexts)
+            target_Q = torch.min(target_Q1, target_Q2) - self.alpha * next_state_log_pi
+            target_Q = rewards + (1.0 * self.gamma * target_Q) # made done = 1.0, pretty dure done was (1.0 - 0.0) in SAC # GAMMA = 0.99
+
+        # Get current Q estimates
+        current_Q1, current_Q2 = self.critic(states, masks, contexts)
+
+        # Compute critic loss
+        critic_loss = nn.functional.mse_loss(current_Q1, target_Q) + nn.functional.mse_loss(current_Q2, target_Q) 
+
+        # Optimize the critic
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        self.critic_optimizer.step()
+
+        pi, log_pi, _ = self.policy.sample(states)
+
+        qf1_pi, qf2_pi = self.critic(states, pi, contexts)
+        min_qf_pi = torch.min(qf1_pi, qf2_pi)
+
+        policy_loss = ((self.alpha * log_pi) - min_qf_pi).mean() # Jπ = 𝔼st∼D,εt∼N[α * logπ(f(εt;st)|st) − Q(st,f(εt;st))]
+
+        self.policy_optim.zero_grad()
+        policy_loss.backward()
+        self.policy_optim.step()
+
+        pi, log_pi, _ = self.policy.sample(states)
+
+        if self.automatic_entropy_tuning:
+            alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach().cpu()).mean()
+
+            self.alpha_optim.zero_grad()
+            alpha_loss.backward()
+            self.alpha_optim.step()
 
 
-    def forward(self, obs):
-        return self.layers(obs)
+            self.alpha = self.log_alpha.exp() #.to(self.log_alpha.device)
+            self.alpha = self.alpha.to(next_state_log_pi.device)
+            alpha_tlogs = self.alpha.clone() # For TensorboardX logs
+        else:
+            alpha_loss = torch.tensor(0.)
+            alpha_tlogs = torch.tensor(self.alpha) # For TensorboardX logs
 
+        pi, log_pi, _ = self.policy.sample(states)
+
+        # Every POLICY FREQUENCY, update critic weights
+        if self.it % POLICY_FREQUENCY == 0:
+            for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
+                target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
+            pi, log_pi, _ = self.policy.sample(states)
+
+        self.it += 1
+        total_loss = policy_loss + critic_loss
+        
+        return total_loss
+    
 
 class WorldModel(nn.Module):
     def __init__(self, obs_space, act_space, step, config):
@@ -104,16 +238,16 @@ class WorldModel(nn.Module):
             'image': (108,),
             'action': (2,),
             'reward': (1,),
-            'context': (CONTEXT_SIZE,),
+            'context': (2,),
             'is_terminal': (1,)
         }
         print("config.encoder :", config.encoder)
-        self.encoder = cfnetworks.MultiEncoder(shapes, **config.encoder)
+        self.encoder = cnetworks.MultiEncoder(shapes, **config.encoder)
         self.encoder._mlp.to(config.device)
         if hasattr(config, "add_dcontext") and config.add_dcontext: # EMRAN check this
-            context_size = CONTEXT_SIZE # obs_space["context"].shape[0]
+            context_size = 2 # obs_space["context"].shape[0]
         self.embed_size = self.encoder.outdim
-        self.dynamics = cfnetworks.RSSM(
+        self.dynamics = cnetworks.RSSM(
             config.dyn_stoch,
             config.dyn_deter,
             config.dyn_hidden,
@@ -142,10 +276,10 @@ class WorldModel(nn.Module):
             feat_size = config.dyn_stoch + config.dyn_deter
         if config.add_dcontext:
             feat_size += context_size
-        self.heads["decoder"] = cfnetworks.MultiDecoder(
+        self.heads["decoder"] = cnetworks.MultiDecoder(
             feat_size, shapes, **config.decoder
         )
-        self.heads["reward"] = cfnetworks.MLP(
+        self.heads["reward"] = cnetworks.MLP(
             feat_size,
             (255,) if config.reward_head["dist"] == "symlog_disc" else (),
             config.reward_head["layers"],
@@ -157,7 +291,7 @@ class WorldModel(nn.Module):
             device=config.device,
             name="Reward",
         )
-        self.heads["cont"] = cfnetworks.MLP(
+        self.heads["cont"] = cnetworks.MLP(
             feat_size,
             (),
             config.cont_head["layers"],
@@ -198,40 +332,18 @@ class WorldModel(nn.Module):
             cont=config.cont_head["loss_scale"],
         )
 
-        self._backward_model = ForwardModel(obs_space, act_space, config)
-        self._forward_model = ForwardModel(obs_space, act_space, config)
-        self._ctx_encoder = ContextEncoder(obs_space, config)
-        
-        self._backward_opt = tools.Optimizer(
-            "_backward_model",
-            self._backward_model.parameters(),
-            config.ctx_encoder["lr"],
-            config.ctx_encoder["eps"],
-            config.ctx_encoder["grad_clip"],
-            config.weight_decay,
-            opt=config.opt,
-            use_amp=self._use_amp,
-        )
-        self._forward_opt = tools.Optimizer(
-            "_forward_model",
-            self._forward_model.parameters(),
-            config.ctx_encoder["lr"],
-            config.ctx_encoder["eps"],
-            config.ctx_encoder["grad_clip"],
-            config.weight_decay,
-            opt=config.opt,
-            use_amp=self._use_amp,
-        )
-        self._ctx_opt = tools.Optimizer(
-            "_ctx_encoder",
-            self._ctx_encoder.parameters(),
-            config.ctx_encoder["lr"],
-            config.ctx_encoder["eps"],
-            config.ctx_encoder["grad_clip"],
-            config.weight_decay,
-            opt=config.opt,
-            use_amp=self._use_amp,
-        )
+        # Context Mask
+        self._ctx_mask = CtxMask(obs_space, act_space, config)
+        # self._ctx_opt = tools.Optimizer(
+        #     "_ctx_mask",
+        #     self._ctx_mask.parameters(),
+        #     config.ctx_mask["lr"],
+        #     config.ctx_mask["eps"],
+        #     config.ctx_mask["grad_clip"],
+        #     config.weight_decay,
+        #     opt=config.opt,
+        #     use_amp=self._use_amp,
+        # )
 
     def _train(self, data):
         # print("--------------------------------------------")
@@ -241,11 +353,7 @@ class WorldModel(nn.Module):
         # reward (batch_size, batch_length)
         # discount (batch_size, batch_length)
         data = self.preprocess(data)
-        # dcontext = self._ctx_encoder(data['image'].reshape(-1, data['image'].shape[-1]))\
-            # .reshape((data['image'].shape[0], data['image'].shape[1], -1))
-        # data['context'] = dcontext
         dcontext = data['context']
-
 
         # print("self.preprocess(data) :", time.time() - before)
         # before = time.time()
@@ -255,6 +363,15 @@ class WorldModel(nn.Module):
                 embed = self.encoder(data)
                 # print("Encoder :", time.time() - before)
                 # before = time.time()
+
+                if self.dynamics._add_dcontext:
+                    b, t, o = data['image'].shape
+                    ctx_mask = self._ctx_mask(data['image'].reshape(-1, o)).reshape(b, t, -1)
+                    dcontext *= ctx_mask
+
+                    self._ctx_mask._train(data)
+
+
                 post, prior = self.dynamics.observe(
                     embed, data["action"], data["is_first"], dcontext=dcontext if self.dynamics._add_dcontext else None
                 )
@@ -270,11 +387,6 @@ class WorldModel(nn.Module):
                 # before = time.time()
                 assert kl_loss.shape == embed.shape[:2], kl_loss.shape
                 preds = {}
-                if self.dynamics._add_dcontext:
-                    torch.autograd.set_detect_anomaly(True)
-                    b, l, o = data['image'].shape
-                    preds['forward'] = self._forward_model(data['image'][:, :-1].reshape(-1, o), data['action'][:, :-1].reshape(-1, 2), data['context'][:, :-1].reshape(-1, CONTEXT_SIZE))
-                    preds['backward'] = self._backward_model(data['image'][:, 1:].reshape(-1, o), data['action'][:, :-1].reshape(-1, 2), data['context'][:, :-1].reshape(-1, CONTEXT_SIZE))
                 for name, head in self.heads.items():
                     if name == "context":
                         print("\n\n\n\n\n\n ahhhhhh context head ahhhhh \n\n\n\n\n\n")
@@ -289,24 +401,7 @@ class WorldModel(nn.Module):
                     else:
                         preds[name] = pred
                 losses = {}
-                if self.dynamics._add_dcontext:
-                    b, l, o = data['image'].shape
-                    states, next_states = data['image'][:, :-1].reshape(-1, o), data['image'][:, 1:].reshape(-1, o)
-                    def nll(target, pred):
-                        return -0.5 * (
-                            ((target - pred['mean']) ** 2 / torch.exp(0.5 * pred['var'])).sum(dim=1)
-                            + pred['var'].sum(dim=1)
-                            + pred['mean'].shape[-1] * torch.log(torch.tensor(2 * torch.pi))
-                        )
-                        
-                    # print("WorldModel._train -> preds[forward], next_states:", preds['forward'].shape, next_states.shape)
-                    # print("WorldModel._train -> preds[backward], sstates:", preds['backward'].shape, states.shape)
-                    forward_loss = nll(next_states, preds['forward'])
-                    backward_loss = nll(states, preds['backward'])
-                    ctx_loss = torch.mean(forward_loss) + torch.mean(0.5 * backward_loss)
                 for name, pred in preds.items():
-                    if name in ['forward', 'backward']:
-                        continue
                     loss = -pred.log_prob(data[name])
                     assert loss.shape == embed.shape[:2], (name, loss.shape)
                     losses[name] = loss
@@ -316,12 +411,10 @@ class WorldModel(nn.Module):
                     key: value * self._scales.get(key, 1.0)
                     for key, value in losses.items()
                 }
+                print(scaled)
                 model_loss = sum(scaled.values()) + kl_loss
                 # print("Scaled model loss :", time.time() - before)
                 # before = time.time()
-            _ = self._ctx_opt(ctx_loss, self._ctx_encoder.parameters())
-            _ = self._forward_opt(torch.mean(forward_loss), self._forward_model.parameters())
-            _ = self._backward_opt(torch.mean(backward_loss), self._backward_model.parameters())
             metrics = self._model_opt(torch.mean(model_loss), self.parameters())
 
         metrics.update({f"{name}_loss": to_np(loss) for name, loss in losses.items()})
@@ -333,9 +426,6 @@ class WorldModel(nn.Module):
         metrics["dyn_loss"] = to_np(dyn_loss)
         metrics["rep_loss"] = to_np(rep_loss)
         metrics["kl"] = to_np(torch.mean(kl_value))
-        metrics["ctx_loss"] = to_np(ctx_loss)
-        metrics["forward_loss"] = to_np(forward_loss)
-        metrics["backward_loss"] = to_np(backward_loss)
         # if hasattr(self.config, "use_context_head") and self.config.use_context_head:
         if "context" in self.heads:
             pure_context_head_fn = nj.pure(
@@ -424,7 +514,7 @@ class ImagBehavior(nn.Module):
         if self._add_dcontext:
             feat_size += world_model.dynamics.context_size
 
-        self.actor = cfnetworks.MLP(
+        self.actor = cnetworks.MLP(
             feat_size,
             (config.num_actions,),
             config.actor["layers"],
@@ -442,7 +532,7 @@ class ImagBehavior(nn.Module):
             device=config.device,
             name="Actor",
         )
-        self.value = cfnetworks.MLP(
+        self.value = cnetworks.MLP(
             feat_size,
             (255,) if config.critic["dist"] == "symlog_disc" else (),
             config.critic["layers"],

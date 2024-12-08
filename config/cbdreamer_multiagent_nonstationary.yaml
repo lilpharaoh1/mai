@@ -1,9 +1,9 @@
-test_name: "cfdreamer_multiagent_nonstationary"
+test_name: "cbdreamer_multiagent_nonstationary"
 
 # num_agents: 1
 # target_position: 1
 
-architecture: "cfDreamer"
+architecture: "cbDreamer"
 window_in: 2
 window_out: 1
 
