@@ -12,7 +12,6 @@ from TrajectoryAidedLearning.Utils.utils import *
 from matplotlib.ticker import MultipleLocator
 from TrajectoryAidedLearning.DataTools.plotting_utils import *
 
-
 class AnalyseTestLapData:
     def __init__(self):
         self.run_data = None
@@ -22,6 +21,7 @@ class AnalyseTestLapData:
         self.run_data = setup_run_list(run_file)
         self.conf = load_conf("config_file")
         self.n = self.run_data[-1].n + 1
+
         path = "Data/Vehicles/" + run_file + "/"
 
         vehicle_folders = sorted(glob.glob(f"{path}*/"))
@@ -31,8 +31,9 @@ class AnalyseTestLapData:
 
         in_dist = np.full((1, 7, 7), False, dtype=bool)
         in_dist[:, 2:5, 2:5] = True
+        arr = [4,2]
         for run_num, run_folder in enumerate(run_folders):
-            self.num_agents = self.run_data[len(run_folders) - 1 - run_num].num_agents
+            self.num_agents = arr[run_num]# self.run_data[len(run_folders) - 1 - run_num].num_agents
             self.n_test_laps = self.run_data[len(run_folders) - 1 - run_num].n_test_laps
             run_succ = np.empty((0, 7, 7))
             for idx, folder in enumerate(run_folder):
@@ -40,15 +41,16 @@ class AnalyseTestLapData:
                     print(f"Vehicle folder being opened: {folder}")
                     indv_succ = self.find_succ(folder)
                     run_succ = np.concatenate([run_succ, indv_succ])
-                    self.plot_succ_mat(indv_succ, save_path=f'{folder}overtakes_{idx}')
+                    self.plot_succ_mat(indv_succ, save_path=f'{folder}place_{idx}')
                 except:
                     print(f"NOTE -> not counting folder {folder}")
-            self.plot_succ_mat(np.mean(run_succ, axis=0).reshape(1, 7, 7), save_path=f'{run_names[run_num]}overtakes')
-            iid = np.mean(run_succ, axis=0).reshape(1, 7, 7)[in_dist]
-            ood = np.mean(run_succ, axis=0).reshape(1, 7, 7)[~in_dist]
+            run_succ[run_succ == 0.0] = self.num_agents # np.nan
+            self.plot_succ_mat(np.nanmean(run_succ, axis=0).reshape(1, 7, 7), save_path=f'{run_names[run_num]}place')
+            iid = np.nanmean(run_succ, axis=0).reshape(1, 7, 7)[in_dist]
+            ood = np.nanmean(run_succ, axis=0).reshape(1, 7, 7)[~in_dist]
 
-            print(f"In-distribution: {np.mean(iid)} +- {np.std(iid)}")
-            print(f"Out-of-distribution: {np.mean(ood)} +- {np.std(ood)}")
+            print(f"In-distribution: {np.nanmean(iid)} +- {np.nanstd(iid)}")
+            print(f"Out-of-distribution: {np.nanmean(ood)} +- {np.nanstd(ood)}")
 
 
     def plot_succ_mat(self, data, save_path=None):
@@ -57,15 +59,21 @@ class AnalyseTestLapData:
 
         # Plot using matplotlib
         fig, ax = plt.subplots(figsize=(8, 6))
-        cax = ax.matshow(data, cmap='magma_r', vmin=0.0, vmax=self.num_agents-1)
+        masked_data = np.copy(data)
+        masked_data[masked_data == 0] = self.num_agents
+        masked_data[masked_data == np.nan] = self.num_agents
+        masked_data[np.isnan(masked_data)] = self.num_agents
 
         # Add color bar to show the scale
+        cax = ax.matshow(masked_data, cmap='magma', vmin=1.0, vmax=self.num_agents)
         fig.colorbar(cax)
 
         # Annotate each cell with the numeric value
         for i in range(data.shape[0]):
             for j in range(data.shape[1]):
-                ax.text(j, i, f'{data[i, j]:.2f}', va='center', ha='center', color='black' if data[i, j] < ((self.num_agents - 1) / 2) else 'white')
+                place = data[i, j]
+                ax.text(j, i, f'{place:.2f}', va='center', ha='center', color='black' if place > ((self.num_agents + 1) / 2) else 'white')                    
+                    
 
         # Draw a box around the middle 3x3 area
         rect = plt.Rectangle((2 - 0.5, 2 - 0.5), 3, 3, edgecolor='green', facecolor='none', linewidth=2, linestyle='--')
@@ -88,7 +96,7 @@ class AnalyseTestLapData:
             yaml_path = f"{folder}RunConfig_{i}_record.yaml"
             with open(yaml_path) as file:
                 run_config = yaml.safe_load(file)
-                indv_succ[i // 7, i % 7] = run_config['avg_overtakes']
+                indv_succ[i // 7, i % 7] = run_config['avg_place']
 
         return indv_succ.reshape((1, 7, 7))
 

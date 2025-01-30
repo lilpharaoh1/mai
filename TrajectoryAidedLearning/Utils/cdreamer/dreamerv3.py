@@ -232,7 +232,14 @@ class DreamerV3(nn.Module):
             else:
                 self._metrics[name].append(value)
 
-    def save(self, path):
+    def save(self, path, best=False):
+        if best:
+            items_to_save = {
+                "agent_state_dict": self.state_dict(),
+                "optims_state_dict": tools.recursively_collect_optim_state_dict(self),
+            }
+            torch.save(items_to_save, path + "/best_" + self.name + ".pth")
+            return
         eps_dir = path + "/Buffer"
         eps_name = 'eps_' + str(self.buffer_ptr)
         if not os.path.exists(eps_dir):

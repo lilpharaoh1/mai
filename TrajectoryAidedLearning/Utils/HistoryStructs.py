@@ -18,17 +18,21 @@ def plot_data(values, moving_avg_period=10, title="Results", figure_n=2):
     plt.ylabel('Duration')
     plt.plot(values)
 
-    if len(values) >= moving_avg_period:
-        moving_avg = true_moving_average(values, moving_avg_period)
-        plt.plot(moving_avg)    
-    if len(values) >= moving_avg_period*5:
-        moving_avg = true_moving_average(values, moving_avg_period * 5)
-        plt.plot(moving_avg)    
+    out = ewma(values)
+    plt.plot(out)
+    
+    # if len(values) >= moving_avg_period:
+    #     moving_avg = true_moving_average(values, moving_avg_period)
+    #     plt.plot(moving_avg)    
+    # if len(values) >= moving_avg_period*5:
+    #     moving_avg = true_moving_average(values, moving_avg_period * 5)
+    #     plt.plot(moving_avg)    
+
     # plt.pause(0.001)
 
 
 class TrainHistory():
-    def __init__(self, run, conf, cont=False) -> None:
+    def __init__(self, run, conf, cont=False, save_key=None) -> None:
         self.path = conf.vehicle_path + run.path +  run.run_name 
 
         # training data
@@ -42,6 +46,13 @@ class TrainHistory():
         self.laptimes = np.zeros(SIZE) 
         self.t_counter = 0 # total steps
         
+        # best performance
+        self.best_reward = -999.0
+        self.best_progress = -999.0
+        self.best_overtaking = -999.0
+        self.save_key = save_key if not save_key is None else "reward"
+        self.new_best = False
+
         # espisode data
         self.ep_counter = 0 # ep steps
         self.ep_reward = 0
@@ -114,9 +125,15 @@ class TrainHistory():
         plt.figure(3)
         plt.clf()
 
+        # Plot & Save Reward
         plt.plot(t_steps, self.rewards[0:ptr], '.', color='darkblue', markersize=4)
-        plt.plot(t_steps, true_moving_average(self.rewards[0:ptr], 20), linewidth='4', color='r')
-
+        reward_ewma = ewma(self.rewards[0:ptr])
+        plt.plot(t_steps, reward_ewma, linewidth='4', color='r')
+        max_reward, idx_reward = np.round(np.max(reward_ewma), 5), np.argmax(reward_ewma)
+        self.new_best = max_reward > self.best_reward if self.save_key == "reward" else self.new_best
+        self.best_reward = max_reward
+        plt.plot(t_steps[idx_reward], max_reward, 'x', color='black', markersize=8)
+                
         plt.xlabel("Training Steps (x100)")
         plt.ylabel("Reward per Episode")
 
@@ -126,8 +143,16 @@ class TrainHistory():
 
         plt.figure(4)
         plt.clf()
-        plt.plot(t_steps, self.progresses[0:self.ptr], '.', color='darkblue', markersize=4)
-        plt.plot(t_steps, true_moving_average(self.progresses[0:self.ptr], 20), linewidth='4', color='r')
+
+
+        # Plot & Save Progress
+        plt.plot(t_steps, self.progresses[0:ptr], '.', color='darkblue', markersize=4)
+        progress_ewma = ewma(self.progresses[0:ptr])
+        plt.plot(t_steps, progress_ewma, linewidth='4', color='r')
+        max_progress, idx_progress = np.round(np.max(progress_ewma), 5), np.argmax(progress_ewma)
+        self.new_best = max_progress > self.best_progress if self.save_key == "progress" else self.new_best
+        self.best_progress = max_progress
+        plt.plot(t_steps[idx_progress], max_progress, 'x', color='black', markersize=8)
 
         plt.xlabel("Training Steps (x100)")
         plt.ylabel("Progress")
@@ -138,8 +163,17 @@ class TrainHistory():
 
         plt.figure(5)
         plt.clf()
-        plt.plot(t_steps, self.overtaking[0:self.ptr], '.', color='darkblue', markersize=4)
-        plt.plot(t_steps, true_moving_average(self.overtaking[0:self.ptr], 20), linewidth='4', color='r')
+
+
+        # Plot & Save Overtaking
+        plt.plot(t_steps, self.overtaking[0:ptr], '.', color='darkblue', markersize=4)
+        overtaking_ewma = ewma(self.overtaking[0:ptr])
+        plt.plot(t_steps, overtaking_ewma, linewidth='4', color='r')
+        max_overtaking, idx_overtaking = np.round(np.max(overtaking_ewma), 5), np.argmax(overtaking_ewma)
+        self.new_best = max_overtaking > self.best_overtaking if self.save_key == "overtaking" else self.new_best
+        self.best_overtaking = max_overtaking
+        plt.plot(t_steps[idx_overtaking], max_overtaking, 'x', color='black', markersize=8)
+                
 
         plt.xlabel("Training Steps (x100)")
         plt.ylabel("Overtaking per Episode")

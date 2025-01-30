@@ -40,20 +40,24 @@ class QNetwork(nn.Module):
         super(QNetwork, self).__init__()
 
         # Q1 architecture
-        self.linear1 = nn.Linear(num_inputs + num_actions + CONTEXT_SIZE, hidden_dim)
+        # self.linear1 = nn.Linear(num_inputs + num_actions + CONTEXT_SIZE, hidden_dim)
+        self.linear1 = nn.Linear(num_inputs + num_actions, hidden_dim)
         self.linear2 = nn.Linear(hidden_dim, hidden_dim)
         self.linear3 = nn.Linear(hidden_dim, 1)
 
         # Q2 architecture
-        self.linear4 = nn.Linear(num_inputs + num_actions + CONTEXT_SIZE, hidden_dim)
+        # self.linear4 = nn.Linear(num_inputs + num_actions + CONTEXT_SIZE, hidden_dim)
+        self.linear4 = nn.Linear(num_inputs + num_actions, hidden_dim)
         self.linear5 = nn.Linear(hidden_dim, hidden_dim)
         self.linear6 = nn.Linear(hidden_dim, 1)
 
         self.apply(weights_init_)
 
-    def forward(self, state, action, context):
-        xu = torch.cat([state, action, context], -1)
-        
+    # def forward(self, state, action, context):
+    def forward(self, state, action):
+        # xu = torch.cat([state, action, context], -1)
+        xu = torch.cat([state, action], -1)
+
         x1 = nn.functional.relu(self.linear1(xu))
         x1 = nn.functional.relu(self.linear2(x1))
         x1 = self.linear3(x1)
@@ -135,7 +139,7 @@ class CtxMask(nn.Module):
         self.automatic_entropy_tuning = True
         self.lr = config.ctx_mask['lr']
 
-        self.critic = QNetwork(obs_space, act_space, h_size)
+        self.critic = QNetwork(obs_space, act_space , h_size)
         self.critic_target = QNetwork(obs_space, act_space, h_size)
         self.critic_target.load_state_dict(self.critic.state_dict())
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr)
@@ -169,12 +173,14 @@ class CtxMask(nn.Module):
             next_action, next_state_log_pi, _ = self.policy.sample(next_states)
             next_action = next_action.clamp(0.0, 1.0)
             # Compute the target Q value
-            target_Q1, target_Q2 = self.critic_target(next_states, next_action, next_contexts)
+            # target_Q1, target_Q2 = self.critic_target(next_states, next_action, next_contexts)
+            target_Q1, target_Q2 = self.critic_target(next_states, next_action)
             target_Q = torch.min(target_Q1, target_Q2) - self.alpha * next_state_log_pi
             target_Q = rewards + (1.0 * self.gamma * target_Q) # made done = 1.0, pretty dure done was (1.0 - 0.0) in SAC # GAMMA = 0.99
 
         # Get current Q estimates
-        current_Q1, current_Q2 = self.critic(states, masks, contexts)
+        # current_Q1, current_Q2 = self.critic(states, masks, contexts)
+        current_Q1, current_Q2 = self.critic(states, masks)
 
         # Compute critic loss
         critic_loss = nn.functional.mse_loss(current_Q1, target_Q) + nn.functional.mse_loss(current_Q2, target_Q) 
@@ -186,7 +192,7 @@ class CtxMask(nn.Module):
 
         pi, log_pi, _ = self.policy.sample(states)
 
-        qf1_pi, qf2_pi = self.critic(states, pi, contexts)
+        qf1_pi, qf2_pi = self.critic(states, pi)# , contexts)
         min_qf_pi = torch.min(qf1_pi, qf2_pi)
 
         policy_loss = ((self.alpha * log_pi) - min_qf_pi).mean() # Jπ = 𝔼st∼D,εt∼N[α * logπ(f(εt;st)|st) − Q(st,f(εt;st))]

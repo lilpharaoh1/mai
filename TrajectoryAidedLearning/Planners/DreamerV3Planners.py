@@ -127,6 +127,8 @@ class DreamerV3Trainer:
         self.t_his.print_update(True)
         self.t_his.save_csv_data()
         self.agent.save(self.path)
+        if self.t_his.new_best:
+            self.agent.save(self.path, best=True)
 
 class DreamerV3Tester:
     def __init__(self, run, conf):
@@ -145,7 +147,7 @@ class DreamerV3Tester:
         self.transform = FastTransform(run, conf)
 
         self.agent = DreamerV3(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out, lr=run.lr)
-        checkpoint = torch.load(self.path + '/' + run.run_name + ".pth")
+        checkpoint = torch.load(self.path + '/best_' + run.run_name + ".pth")
         self.agent.load_state_dict(checkpoint['agent_state_dict'])
         self.nn_state = None
         self.nn_act = None

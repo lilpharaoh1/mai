@@ -1,4 +1,4 @@
-test_name: "dreamerv3_multiagent_nonstationary"
+test_name: "dreamerv3_multiagent_dispext"
 
 # num_agents: 2
 # target_position: 2
@@ -30,9 +30,9 @@ gamma: 0.85
 ma_info: [0.15, 0.15, 0.3, 0.3]
 
 runs:
-  - adversaries: ['PP']
+  - adversaries: ['DispExt']
     num_agents: 2
     target_position: 2
-  - adversaries: ['PP', 'PP', 'PP']
+  - adversaries: ['DispExt', 'DispExt', 'DispExt']
     num_agents: 4
     target_position: 4

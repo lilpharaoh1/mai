@@ -1,20 +1,22 @@
 test_name: "SAC_multiagent_nonstationary"
 
-num_agents: 2
-target_position: 2
+# num_agents: 2
+# target_position: 2
 
 architecture: "SAC"
-window_in: 2
+window_in: 1
 window_out: 1
 
 map_mode: "Std"
 
-n: 3
+start_n: 0
+n: 5
 set_n: 1
 
 random_seed: 10000
 noise_std: 0.0 
 
+start_train_steps: 0
 n_train_steps: 100000
 n_test_laps: 50
 
@@ -29,3 +31,8 @@ ma_info: [0.15, 0.15, 0.3, 0.3]
 
 runs:
   - adversaries: ['PP']
+    num_agents: 2
+    target_position: 2
+  - adversaries: ['PP', 'PP', 'PP']
+    num_agents: 4
+    target_position: 4

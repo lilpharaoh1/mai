@@ -191,6 +191,7 @@ class TestSimulation():
                 while not target_obs['colision_done'] and not target_obs['lap_done'] and not target_obs['current_laptime'] > self.conf.max_laptime:
                     self.prev_obs = observations
                     target_action, recon = self.target_planner.plan(observations[0], context=context)
+                    # target_action, recon = np.array([0.0, 0.45]), None
 
                     # ax.clear()
                     # ax.plot(recon)
@@ -205,6 +206,7 @@ class TestSimulation():
 
                     if len(self.adv_planners) > 0:
                         adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
+                        # adv_actions = np.array([np.array([0.0, 0.0]) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
                         actions = np.concatenate((target_action.reshape(1, -1), adv_actions), axis=0)
                     else:
                         actions = target_action.reshape(1, -1)
@@ -436,15 +438,15 @@ class TestSimulation():
     def calc_offsets(self, num_adv):
         x_offset = np.arange(1, num_adv+1) * 5.5
         y_offset = np.zeros(num_adv)
-        y_offset[::2] = np.ones(ceil(num_adv/2)) * 0.6
+        # y_offset[::2] = np.ones(ceil(num_adv/2)) * 0.6
         offset = np.concatenate((x_offset.reshape(1, -1), y_offset.reshape(1, -1), np.zeros((1, num_adv))), axis=0).T
 
         return offset
 
     def reset_simulation(self):
         reset_pose = np.zeros((self.num_agents, 3))
-        if self.num_agents > 1:
-            reset_pose[:, 1] -= GRID_Y_COEFF/2
+        # if self.num_agents > 1:
+        #     reset_pose[:, 1] -= GRID_Y_COEFF/2
 
         num_adv = self.num_agents - 1
         adv_back = self.num_agents - self.target_position
@@ -478,15 +480,24 @@ def main():
     # run_file = "SAC_singleagent"
     # run_file = "SAC_multiagent_stationary"
     # run_file = "SAC_multiagent_nonstationary"
+    # run_file = "sac_multiagent_classic"
+    # run_file = "sac_multiagent_dispext"
     # run_file = "dreamerv3_lr"
     # run_file = "dreamerv3_singleagent"
     # run_file = "dreamerv3_multiagent_stationary"
     # run_file = "dreamerv3_multiagent_nonstationary"
+    # run_file = "dreamerv3_multiagent_classic"
+    run_file = "dreamerv3_multiagent_dispext"
     # run_file = "cdreamer_singleagent"
     # run_file = "cdreamer_multiagent_stationary"
-    run_file = "cdreamer_multiagent_nonstationary"
+    # run_file = "cdreamer_multiagent_nonstationary"
+    # run_file = "cdreamer_multiagent_classic"
     # run_file = "cfdreamer_multiagent_nonstationary"
-    
+    # run_file = "cbdreamer_multiagent_nonstationary"
+    # run_file = "cbdreamer_multiagent_nonstationary2"
+    # run_file = "cbdreamer_multiagent_classic"
+
+
     sim = TestSimulation(run_file)
     sim.run_testing_evaluation()
 

@@ -35,7 +35,7 @@ class SACTrainer:
         self.train = self.agent.train # alias for sss
         self.save = self.agent.save # alias for sss
 
-    def plan(self, obs, add_mem_entry=True):
+    def plan(self, obs, context=None, add_mem_entry=True):
         nn_state = self.transform.transform_obs(obs)
         if add_mem_entry:
             self.add_memory_entry(obs)
@@ -88,7 +88,7 @@ class SACTrainer:
             print(f"Crashed on first step: RETURNING")
             return
         
-        self.agent.save(self.path)
+        # self.agent.save(self.path)
         if np.isnan(self.nn_act).any():
             print(f"NAN in act: {self.nn_act}")
             raise Exception("NAN in act")
@@ -106,6 +106,8 @@ class SACTrainer:
         self.t_his.print_update(True)
         self.t_his.save_csv_data()
         self.agent.save(self.path)
+        if self.t_his.new_best:
+            self.agent.save(self.path, best=True)
 
 class SACTester:
     def __init__(self, run, conf):
@@ -127,14 +129,14 @@ class SACTester:
         self.scan_buffer = np.zeros((self.window_in, self.n_beams))
 
         self.agent = SAC(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out, lr=run.lr, gamma=run.gamma)
-        self.agent.load(self.path)
+        self.agent.load(self.path, best=True)
 
         print(f"Agent loaded: {run.run_name}")
 
-    def plan(self, obs):
+    def plan(self, obs, context=None):
         if obs['state'][3] < self.v_min_plan:
             self.action = np.array([0, 7])
-            return self.action
+            return self.action, None
         
         nn_obs = self.transform.transform_obs(obs)
 
@@ -156,7 +158,7 @@ class SACTester:
 
         action = self.transform.transform_action(nn_act)
 
-        return action 
+        return action, None
 
     def lap_complete(self):
         pass
