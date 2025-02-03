@@ -31,8 +31,8 @@ import cv2
 
 # settings
 SHOW_TRAIN = False
-SHOW_TEST = False
-# SHOW_TEST = True
+# SHOW_TEST = False
+SHOW_TEST = True
 VERBOSE = True
 LOGGING = True
 GRID_X_COEFF = 2.0
@@ -166,6 +166,8 @@ class TestSimulation():
             ma_runlist = np.stack([speed_grid.ravel(), la_grid.ravel()], axis=1)
 
         for ma_idx, ma_info in enumerate(ma_runlist):
+            if ma_idx < 17:
+                pass
             self.adv_planners = [select_agent(run, self.conf, architecture, train=False, init=False, ma_info=ma_info) for architecture in run.adversaries]
             self.vehicle_state_history = [VehicleStateHistory(run, f"Testing/Testing_{ma_idx}/agent_{agent_id}") for agent_id in range(self.num_agents)]
             assert self.env != None, "No environment created"
@@ -487,7 +489,7 @@ def main():
     # run_file = "dreamerv3_multiagent_stationary"
     # run_file = "dreamerv3_multiagent_nonstationary"
     # run_file = "dreamerv3_multiagent_classic"
-    run_file = "dreamerv3_multiagent_dispext"
+    # run_file = "dreamerv3_multiagent_dispext"
     # run_file = "cdreamer_singleagent"
     # run_file = "cdreamer_multiagent_stationary"
     # run_file = "cdreamer_multiagent_nonstationary"
@@ -496,6 +498,7 @@ def main():
     # run_file = "cbdreamer_multiagent_nonstationary"
     # run_file = "cbdreamer_multiagent_nonstationary2"
     # run_file = "cbdreamer_multiagent_classic"
+    run_file = "cbdreamer_multiagent_dispext"
 
 
     sim = TestSimulation(run_file)

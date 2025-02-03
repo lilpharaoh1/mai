@@ -9,7 +9,7 @@ window_out: 1
 
 map_mode: "Std"
 
-start_n: 0
+start_n: 2
 n: 5
 set_n: 1
 
@@ -18,7 +18,7 @@ noise_std: 0.0
 
 start_train_steps: 0
 n_train_steps: 100000
-n_test_laps: 50
+n_test_laps: 1
 
 map_name: "f1_esp"
 reward: "Cth"
