@@ -1,8 +1,13 @@
+import os
+import sys
+sys.path.insert(0, os.getcwd()) # hacky fix
+
 import numpy as np
 from matplotlib import pyplot as plt
 import csv, yaml
 from PIL import Image
 from matplotlib.collections import LineCollection
+from TrajectoryAidedLearning.DataTools.plotting_utils import *
 
 class MapData:
     def __init__(self, map_name):
@@ -122,6 +127,11 @@ class MapData:
         self.plot_centre_line()
         
         self.plot_race_line()
+
+
+        plt.xticks([])
+        plt.yticks([])
+        std_img_saving("Data/Vehicles/ppline", grid=False)
 
         plt.show()
 

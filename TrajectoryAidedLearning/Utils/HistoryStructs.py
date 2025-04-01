@@ -209,12 +209,16 @@ class VehicleStateHistory:
                 os.mkdir(tmp_path)
         self.path = "Data/Vehicles/" + run.path + run.run_name + "/" + folder + "/"
         self.states = []
+        self.masks = []
         self.actions = []
         self.progresses = []
     
 
     def add_state(self, state):
         self.states.append(state)
+        
+    def add_mask(self, mask):
+        self.masks.append(mask)
     
     def add_action(self, action):
         self.actions.append(action)
@@ -229,6 +233,10 @@ class VehicleStateHistory:
         progresses = np.array(self.progresses).reshape(-1, 1)
 
         lap_history = np.concatenate((states, actions, progresses), axis=1)
+        if len(self.masks) > 2: # One is automatically added
+            self.masks.insert(0, np.array(self.masks[0]))
+            masks = np.concatenate(self.masks, axis=0)#.reshape(-1, 2)
+            lap_history = np.concatenate((lap_history, masks), axis=1)
 
         if test_map is None:
             np.save(self.path + f"Lap_{lap_n}_history_{self.vehicle_name}.npy", lap_history)
@@ -238,6 +246,7 @@ class VehicleStateHistory:
         self.states = []
         self.actions = []
         self.progresses = []
+        self.masks = []
 
 
 

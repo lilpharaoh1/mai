@@ -16,37 +16,36 @@ from TrajectoryAidedLearning.Utils.utils import *
 from TrajectoryAidedLearning.DataTools.TrainingGraphs.TrainingUtils import *
 from TrajectoryAidedLearning.DataTools.plotting_utils import *
 
-# SAVE_NAME = "classic_reward_dist_111"
-SAVE_NAME = "singleagent_reward_dist_nofill"
-FILL = False
+SAVE_NAME = "classic_stepreward_dist_1"
+FILL = True
 
 def plot_progress():
     names = [
         "SAC",
         "DreamerV3",
-        # "cRSSM",
-        # "cMask",
+        "cRSSM",
+        "cMask",
     ]
     runs = [
-        # "sac_multiagent_classic/SAC_111_15153030_Std_Cth_f1_esp_6_0_850_",
-        # "dreamerv3_multiagent_classic/DreamerV3_111_15153030_Std_Cth_f1_esp_6_0_850_",
-        # "cdreamer_multiagent_classic/cDreamer_111_15153030_Std_Cth_f1_esp_6_0_850_",
-        # "cbdreamer_multiagent_classic2/cbDreamer_111_15153030_Std_Cth_f1_esp_6_0_850_",
-        "sac_singleagent/SAC_0_0000_Std_Cth_f1_esp_6_10_850_",
-        "dreamerv3_singleagent/DreamerV3_0_0000_Std_Cth_f1_esp_6_0_850_"
+        "sac_multiagent_classic/SAC_1_15153030_Std_Cth_f1_esp_6_0_850_",
+        "dreamerv3_multiagent_classic/DreamerV3_1_15153030_Std_Cth_f1_esp_6_0_850_",
+        "cdreamer_multiagent_classic/cDreamer_1_15153030_Std_Cth_f1_esp_6_0_850_",
+        "cbdreamer_multiagent_classic2/cbDreamer_1_15153030_Std_Cth_f1_esp_6_0_850_",
+
     ]
     colors = [
         'gray',
         'red',
-        # 'blue',
-        # 'green',
+        'blue',
+        'green',
     ]
     
     def find_progress(folder):
         rewards, lengths, progresses, _ = load_csv_data(folder)
+        print(lengths[-20:])
         steps = np.cumsum(lengths[:-1]) / 1000
         # avg_progress = true_moving_average(rewards[:-1], 20)
-        avg_progress = ewma(rewards[:-1])
+        avg_progress = ewma(rewards[:-1] / lengths[:-1])
 
         return avg_progress, steps    
 
@@ -75,7 +74,7 @@ def plot_progress():
 
         plt.xlabel("Training Steps (x1000)")
         plt.ylabel("Reward per Episode")
-        plt.ylim(0, 250)
+        plt.ylim(0, 1)
         plt.legend(loc='upper left')
         plt.tight_layout()
         plt.grid()
@@ -100,7 +99,7 @@ def plot_progress():
             plt.gca().fill_between(xs, mins[run_idx], maxs[run_idx], color=colors[run_idx], alpha=0.2)
     plt.xlabel("Training Steps (x1000)")
     plt.ylabel("Reward per Episode")
-    plt.ylim(0, 250)
+    plt.ylim(0, 1)
     plt.legend(loc='upper left')
     plt.tight_layout()
     plt.grid()

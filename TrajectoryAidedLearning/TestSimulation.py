@@ -166,8 +166,9 @@ class TestSimulation():
             ma_runlist = np.stack([speed_grid.ravel(), la_grid.ravel()], axis=1)
 
         for ma_idx, ma_info in enumerate(ma_runlist):
-            if ma_idx < 17:
-                pass
+            if ma_idx < 31:
+                continue
+            print(f"Architecture {run.architecture} / Num_Agents {run.num_agents} / Adversary {run.adversaries[0]} / Set_n {run.n} / RunConfig {ma_idx} ")
             self.adv_planners = [select_agent(run, self.conf, architecture, train=False, init=False, ma_info=ma_info) for architecture in run.adversaries]
             self.vehicle_state_history = [VehicleStateHistory(run, f"Testing/Testing_{ma_idx}/agent_{agent_id}") for agent_id in range(self.num_agents)]
             assert self.env != None, "No environment created"
@@ -178,21 +179,28 @@ class TestSimulation():
             self.overtakes = []
             self.progresses = []
             self.rewards = []
+            self.step_rewards = []
             self.completed_laps = 0
             self.a2a_collisions = 0
 
             context = ma_info #if len(run.adversaries) > 0 else None
+            # context = [0.0, 0.0] # for cless runs, please delete later
             for i in range(self.n_test_laps):
                 observations = self.reset_simulation()
                 target_obs = observations[0]
 
+                eps_steps = 0
                 eps_reward = 0.0
                 eps_overtakes = 0.0
                 # frame_list = []
                 # fig, ax = plt.subplots()
                 while not target_obs['colision_done'] and not target_obs['lap_done'] and not target_obs['current_laptime'] > self.conf.max_laptime:
                     self.prev_obs = observations
-                    target_action, recon = self.target_planner.plan(observations[0], context=context)
+                    target_action, extra = self.target_planner.plan(observations[0], context=context)
+                    # target_action, extra = np.array([0.0, 0.0]), None
+                    if run.architecture == "cbDreamer":
+                        self.vehicle_state_history[0].add_mask(extra)
+
                     # target_action, recon = np.array([0.0, 0.45]), None
 
                     # ax.clear()
@@ -214,6 +222,7 @@ class TestSimulation():
                         actions = target_action.reshape(1, -1)
                     
                     step_position = target_obs['position']
+                    eps_steps += 1
                     eps_reward += target_obs['reward']
                     eps_overtakes += target_obs['overtaking']
 
@@ -235,13 +244,16 @@ class TestSimulation():
                 self.target_planner.lap_complete()
                 self.progresses.append(target_obs['progress'])
                 self.rewards.append(eps_reward)
+                self.step_rewards.append(eps_reward / eps_steps)
                 self.overtakes.append(eps_overtakes)
                 if target_obs['lap_done']:
                     if VERBOSE: print(f"Lap {i} Complete in time: {target_obs['current_laptime']}")
                     self.lap_times.append(target_obs['current_laptime'])
                     self.places.append(step_position)
-
                     self.completed_laps += 1
+                else:
+                    self.places.append(run.num_agents)
+
                 if target_obs['colision_a2a']:
                     self.a2a_collisions += 1
 
@@ -285,12 +297,18 @@ class TestSimulation():
             else:
                 avg_reward, reward_std_dev = 0, 0
 
+            if len(self.step_rewards) > 0:
+                avg_step_reward, step_reward_std_dev = np.mean(self.step_rewards), np.std(self.step_rewards)
+            else:
+                avg_step_reward, step_reward_std_dev = 0, 0
+
             print(f"Crashes: {self.n_test_laps - self.completed_laps} VS Completes {self.completed_laps} --> {success_rate:.2f} %")
             print(f"Lap times Avg: {avg_times} --> Std: {times_std_dev}")
             print(f"Place Avg: {avg_place} --> Std: {place_std_dev}")
             print(f"Overtakes Avg: {avg_overtakes} --> Std: {overtakes_std_dev}")
             print(f"Progress Avg: {avg_progress} --> Std: {progress_std_dev}")
             print(f"Reward Avg: {avg_reward} --> Std: {reward_std_dev}")
+            print(f"Step Reward Avg: {avg_step_reward} --> Std: {step_reward_std_dev}")
 
 
             eval_dict = {}
@@ -306,6 +324,8 @@ class TestSimulation():
             eval_dict['progress_std_dev'] = float(progress_std_dev)
             eval_dict['avg_reward'] = float(avg_reward)
             eval_dict['reward_std_dev'] = float(reward_std_dev)
+            eval_dict['avg_step_reward'] = float(avg_step_reward)
+            eval_dict['step_reward_std_dev'] = float(step_reward_std_dev)
 
             run_dict = vars(run)
             run_dict.update(eval_dict)
@@ -494,13 +514,39 @@ def main():
     # run_file = "cdreamer_multiagent_stationary"
     # run_file = "cdreamer_multiagent_nonstationary"
     # run_file = "cdreamer_multiagent_classic"
+    # run_file = "cdreamer_multiagent_dispext"
     # run_file = "cfdreamer_multiagent_nonstationary"
     # run_file = "cbdreamer_multiagent_nonstationary"
     # run_file = "cbdreamer_multiagent_nonstationary2"
     # run_file = "cbdreamer_multiagent_classic"
-    run_file = "cbdreamer_multiagent_dispext"
+    # run_file = "cbdreamer_multiagent_dispext"
+
+    # run_file = "sac_multiagent_classic_gbr"
+    # sim = TestSimulation(run_file)
+    # sim.run_testing_evaluation()
+
+    # run_file = "dreamerv3_multiagent_dispext"
+    # sim = TestSimulation(run_file)
+    # sim.run_testing_evaluation()
+
+    # run_file = "cdreamer_multiagent_dispext"
+    # sim = TestSimulation(run_file)
+    # sim.run_testing_evaluation()
+
+    # run_file = "clesscbdreamer_multiagent_dispext"
+    # sim = TestSimulation(run_file)
+    # sim.run_testing_evaluation()
+
+    # run_file = "clesscdreamer_multiagent_classic"
+    # sim = TestSimulation(run_file)
+    # sim.run_testing_evaluation()
+
+    # run_file = "clesscdreamer_multiagent_dispext"
+    # sim = TestSimulation(run_file)
+    # sim.run_testing_evaluation()
 
 
+    run_file = "dreamerv3_multiagent_classic"
     sim = TestSimulation(run_file)
     sim.run_testing_evaluation()
 

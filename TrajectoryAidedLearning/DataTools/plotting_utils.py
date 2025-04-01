@@ -4,12 +4,12 @@ import glob
 
 
 
-def std_img_saving(name):
+def std_img_saving(name, grid=True):
 
     plt.rcParams['pdf.use14corefonts'] = True
 
     plt.tight_layout()
-    plt.grid(True)
+    plt.grid(grid)
     plt.savefig(name + ".pdf", bbox_inches='tight', pad_inches=0)
     plt.savefig(name + ".svg", bbox_inches='tight', pad_inches=0)
     # new_name = "Data/UploadImgs2/" + name.split("/")[-1]

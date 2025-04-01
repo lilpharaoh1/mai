@@ -171,7 +171,7 @@ class cbDreamerTester:
         self.nn_context = np.array(context) if not context is None else np.zeros((1, 2))
         if obs['state'][3] < self.v_min_plan:
             self.action = np.array([0, 7])
-            return self.action, np.zeros((108,))
+            return self.action, np.zeros((1, 2), dtype=np.float32)
         
         nn_obs = self.transform.transform_obs(obs)
 
@@ -188,7 +188,7 @@ class cbDreamerTester:
 
 
         self.nn_state = nn_obs # after to prevent call before check for v_min_plan
-        self.nn_act, self.nn_rssm, recon = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, context=self.nn_context, is_first=self.nn_act is None, video=True)
+        self.nn_act, self.nn_rssm, recon = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, context=self.nn_context, is_first=self.nn_act is None, video=False)
         self.nn_act = self.nn_act.cpu().squeeze(0)
 
         if np.isnan(self.nn_act).any():
@@ -199,7 +199,7 @@ class cbDreamerTester:
         self.action = self.transform.transform_action(self.nn_act)
 
 
-        return self.action, recon
+        return self.action, recon.cpu().numpy()
 
     def lap_complete(self):
         self.nn_state = None

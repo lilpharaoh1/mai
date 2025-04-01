@@ -1,9 +1,9 @@
-test_name: "cbdreamer_multiagent_classic"
+test_name: "clesscdreamer_multiagent_dispext"
 
 # num_agents: 1
 # target_position: 1
 
-architecture: "cbDreamer"
+architecture: "cDreamer"
 window_in: 2
 window_out: 1
 
@@ -30,10 +30,10 @@ gamma: 0.85
 ma_info: [0.15, 0.15, 0.3, 0.3]
 
 runs:
-  # - adversaries: ['PP']
-  #   num_agents: 2
-  #   target_position: 2
-  - adversaries: ['PP', 'PP', 'PP']
+  - adversaries: ['DispExt']
+    num_agents: 2
+    target_position: 2
+  - adversaries: ['DispExt', 'DispExt', 'DispExt']
     num_agents: 4
     target_position: 4
 

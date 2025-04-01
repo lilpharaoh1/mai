@@ -141,8 +141,8 @@ class DreamerV3(nn.Module):
 
         policy_output = {"action": action, "logprob": logprob}
         state = (latent, action)
-        if video:
-            return action, latent, recon
+        # if video:
+            # return action, latent, recon
         return action, latent, ctx_mask
         # return policy_output, state
  
