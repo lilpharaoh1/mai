@@ -64,6 +64,7 @@ def plot_progress():
     
         xs = np.linspace(0, 100, 300)
         min, max, mean = convert_to_min_max_avg(steps_list, progresses, xs)
+
         print("min, max, mean:", min.shape, max.shape, mean.shape)
         
         plt.cla()
@@ -72,6 +73,7 @@ def plot_progress():
         plt.plot(xs, mean, '-', color=colors[run_idx], linewidth=2, label=names[run_idx])
         if FILL:
             plt.gca().fill_between(xs, min, max, color=colors[run_idx], alpha=0.2)
+
 
         plt.xlabel("Training Steps (x1000)")
         plt.ylabel("Reward per Episode")

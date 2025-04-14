@@ -45,6 +45,7 @@ def plot_progress():
         # avg_progress = true_moving_average(progresses[:-1], 20)
         avg_progress = ewma(progresses[:-1])
 
+
         return avg_progress, steps    
 
     def explore_folder(run_name, run_idx=0):
@@ -102,7 +103,5 @@ def plot_progress():
     plt.grid()
     std_img_saving(f"Data/Vehicles/{SAVE_NAME}")
 
-
-
-
 plot_progress()
+

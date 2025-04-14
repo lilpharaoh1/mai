@@ -15,10 +15,10 @@ def plot_reward_speeds(run_file):
     run_data = setup_run_list(run_file)
     data_path = "Data/Vehicles/" + run_file + "/"
 
-    # print(run_data)
-    # print("Run List :")
-    # for run in run_data:
-    #     print(f"    {run}")
+    print(run_data)
+    print("Run List :")
+    for run in run_data:
+        print(f"    {run}")
 
     n_repeats = run_data[-1].n + 1
     n_runs = len(run_data) // n_repeats

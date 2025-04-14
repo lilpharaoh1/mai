@@ -228,7 +228,6 @@ class TestSimulation():
 
                     observations = self.run_step(actions)
                     target_obs = observations[0]
-                    
 
                     if SHOW_TEST: self.env.render('human_fast')
 
@@ -246,6 +245,7 @@ class TestSimulation():
                 self.rewards.append(eps_reward)
                 self.step_rewards.append(eps_reward / eps_steps)
                 self.overtakes.append(eps_overtakes)
+    
                 if target_obs['lap_done']:
                     if VERBOSE: print(f"Lap {i} Complete in time: {target_obs['current_laptime']}")
                     self.lap_times.append(target_obs['current_laptime'])
@@ -301,7 +301,7 @@ class TestSimulation():
                 avg_step_reward, step_reward_std_dev = np.mean(self.step_rewards), np.std(self.step_rewards)
             else:
                 avg_step_reward, step_reward_std_dev = 0, 0
-
+            
             print(f"Crashes: {self.n_test_laps - self.completed_laps} VS Completes {self.completed_laps} --> {success_rate:.2f} %")
             print(f"Lap times Avg: {avg_times} --> Std: {times_std_dev}")
             print(f"Place Avg: {avg_place} --> Std: {place_std_dev}")
@@ -326,6 +326,7 @@ class TestSimulation():
             eval_dict['reward_std_dev'] = float(reward_std_dev)
             eval_dict['avg_step_reward'] = float(avg_step_reward)
             eval_dict['step_reward_std_dev'] = float(step_reward_std_dev)
+
 
             run_dict = vars(run)
             run_dict.update(eval_dict)
