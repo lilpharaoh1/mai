@@ -91,21 +91,27 @@ class DreamerV3(nn.Module):
             plan2explore=lambda: expl.Plan2Explore(config, self._wm, reward),
         )[config.expl_behavior]().to(self._config.device)
 
-    def act(self, obs, action, latent, is_first=False):
+    def act(self, obs, action, latent, is_first=False, video=False):
         obs = {
             "is_first": np.array([1.0 if is_first else 0.0]),
             "image" : obs.reshape(1, -1),
             "action": action.reshape(1, -1) if not action is None else np.zeros((1, 2)) ,
             "is_terminal": np.array([0.0])
         }
+
         obs, action, latent = self._wm.preprocess(obs), action.to(self._config.device) if not action is None else action, latent # .to(self._config.device) if not latent is None else latent
         embed = self._wm.encoder(obs)
         latent, _ = self._wm.dynamics.obs_step(latent, action, embed, obs["is_first"])
-        
         if self._config.eval_state_mean:
             latent["stoch"] = latent["mean"]
         feat = self._wm.dynamics.get_feat(latent)
 
+
+        if video:
+            # states, _ = self._wm.dynamics.observe(
+            #     embed[:6, :5], action, data["is_first"][:6, :5]
+            # )
+            recon = self._wm.heads["decoder"](feat)["image"].mode().cpu().detach().numpy().reshape(-1)
         
         # if self._should_expl(self._step):
         # if np.random.uniform(0, 1) < self._expl_coeff:
@@ -123,6 +129,8 @@ class DreamerV3(nn.Module):
 
         policy_output = {"action": action, "logprob": logprob}
         state = (latent, action)
+        if video:
+            return action, latent, recon
         return action, latent
         # return policy_output, state
  
@@ -217,7 +225,14 @@ class DreamerV3(nn.Module):
             else:
                 self._metrics[name].append(value)
 
-    def save(self, path):
+    def save(self, path, best=False):
+        if best:
+            items_to_save = {
+                "agent_state_dict": self.state_dict(),
+                "optims_state_dict": tools.recursively_collect_optim_state_dict(self),
+            }
+            torch.save(items_to_save, path + "/best_" + self.name + ".pth")
+            return
         eps_dir = path + "/Buffer"
         eps_name = 'eps_' + str(self.buffer_ptr)
         if not os.path.exists(eps_dir):

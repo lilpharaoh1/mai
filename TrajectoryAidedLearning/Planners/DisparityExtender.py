@@ -4,19 +4,24 @@ class DispExt:
 
     BUBBLE_RADIUS = 16
     PREPROCESS_CONV_SIZE = 16
-    BEST_POINT_CONV_SIZE = 8
+    BEST_POINT_CONV_SIZE = 24
     MAX_LIDAR_DIST = 40 
-    STRAIGHTS_SPEED = 8.0
-    CORNERS_SPEED = 5.0
+    STRAIGHTS_SPEED = 5.0 # 8.0
+    CORNERS_SPEED = 4.0
     STRAIGHTS_STEERING_ANGLE = np.pi / 18  # 10 degrees
     
-    def __init__(self, run, conf):
+    def __init__(self, run, conf, init=False, ma_info=[0.0, 0.0]):
         # used when calculating the angles of the LiDAR data
         self.radians_per_elem = None
         self.n_beams = None
         self.max_steer = conf.max_steer
-        self.straight_speed = run.max_speed * 0.7
-        self.corner_speed = self.straight_speed * 0.625
+        self.max_speed = run.max_speed
+        self.straight_speed = self.STRAIGHTS_SPEED # run.max_speed * 0.7
+        self.corner_speed = self.CORNERS_SPEED # self.straight_speed * 0.625
+        self.slow_down = 0.85
+        self.speed_c, self.steer_c = ma_info
+        
+        print("ma_info :", ma_info)
     
     def preprocess_lidar(self, ranges):
         """ Preprocess the LiDAR scan array. Expert implementation includes:
@@ -28,7 +33,8 @@ class DispExt:
 	    # we won't use the LiDAR data from directly behind us
         proc_ranges = np.array(ranges[self.n_beams//8:-self.n_beams//8])
         # sets each value to the mean over a given window
-        proc_ranges = np.convolve(proc_ranges, np.ones(self.PREPROCESS_CONV_SIZE), 'same') / self.PREPROCESS_CONV_SIZE
+        pre_conv_size = int(self.PREPROCESS_CONV_SIZE * (1 - 2*self.steer_c))
+        proc_ranges = np.convolve(proc_ranges, np.ones(pre_conv_size), 'same') / pre_conv_size
         proc_ranges = np.clip(proc_ranges, 0, self.MAX_LIDAR_DIST)
         return proc_ranges
 
@@ -58,6 +64,8 @@ class DispExt:
         """
         # do a sliding window average over the data in the max gap, this will
         # help the car to avoid hitting corners
+        # bp_conv_size = int(self.BEST_POINT_CONV_SIZE * (1 - self.steer_c))
+        # averaged_max_gap = np.convolve(ranges[start_i:end_i], np.ones(bp_conv_size), 'same') / bp_conv_size
         averaged_max_gap = np.convolve(ranges[start_i:end_i], np.ones(self.BEST_POINT_CONV_SIZE), 'same') / self.BEST_POINT_CONV_SIZE
         return averaged_max_gap.argmax() + start_i
 
@@ -94,7 +102,13 @@ class DispExt:
         steering_angle = np.clip(steering_angle, -self.max_steer, self.max_steer)
         if abs(steering_angle) > self.STRAIGHTS_STEERING_ANGLE:
             speed = self.corner_speed
-        else: speed = self.straight_speed
+        else: 
+            speed = self.straight_speed
+
+        speed = min(speed, self.max_speed) # cap the speed
+        speed *= (self.slow_down)
+        speed *= (1 + self.speed_c)
+
         # print('Speed in m/s: {}'.format((speed)))
         # print('Steering angle in degrees: {}'.format((steering_angle/(np.pi/2))*90))
         return steering_angle, speed

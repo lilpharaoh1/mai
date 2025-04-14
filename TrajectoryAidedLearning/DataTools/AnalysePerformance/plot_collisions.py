@@ -96,6 +96,7 @@ class AnalyseTestLapData:
         runs_folders = glob.glob(f"{folder}" + "Testing/*/")
         for j, run_folder in enumerate(runs_folders):
             print(f"{j}) {run_folder}")
+            self.num_agents = 2 if j < 3 else 4
             if not os.path.exists(run_folder + "TestingCollisions/"): 
                 os.mkdir(run_folder + "TestingCollisions/") 
             self.path = run_folder

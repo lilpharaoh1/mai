@@ -16,25 +16,35 @@ from TrajectoryAidedLearning.Utils.utils import *
 from TrajectoryAidedLearning.DataTools.TrainingGraphs.TrainingUtils import *
 from TrajectoryAidedLearning.DataTools.plotting_utils import *
 
+SAVE_NAME = "training_progress_dist_111"
+
 def plot_progress():
     names = [
         "SAC",
-        "DreamerV3"
+        "DreamerV3",
+        "cRSSM",
+        "cMask",
     ]
     runs = [
-        "SAC_singleagent/SAC_0_0000_Std_Cth_f1_esp_6_10_850_",
-        "dreamerv3_singleagent/DreamerV3_0_0000_Std_Cth_f1_esp_6_1_850_"
+        "sac_multiagent_classic/SAC_111_15153030_Std_Cth_f1_esp_6_0_850_",
+        "dreamerv3_multiagent_classic/DreamerV3_111_15153030_Std_Cth_f1_esp_6_0_850_",
+        "cdreamer_multiagent_classic/cDreamer_111_15153030_Std_Cth_f1_esp_6_0_850_",
+        "cbdreamer_multiagent_classic/cbDreamer_111_15153030_Std_Cth_f1_esp_6_0_850_",
 
     ]
     colors = [
+        'gray',
         'red',
-        'blue'
+        'blue',
+        'green',
     ]
     
     def find_progress(folder):
         rewards, lengths, progresses, _ = load_csv_data(folder)
         steps = np.cumsum(lengths[:-1]) / 1000
-        avg_progress = true_moving_average(progresses[:-1], 20)
+        # avg_progress = true_moving_average(progresses[:-1], 20)
+        avg_progress = ewma(progresses[:-1])
+
 
         return avg_progress, steps    
 
@@ -64,11 +74,11 @@ def plot_progress():
         plt.xlabel("Training Steps (x1000)")
         plt.ylabel("Track Progress %")
         plt.ylim(0, 1)
-        plt.legend(loc='lower right')
+        plt.legend(loc='upper left')
         plt.tight_layout()
         plt.grid()
 
-        std_img_saving(f"Data/Vehicles/{run_name.split('/')[0]}/training_progress_dist")
+        std_img_saving(f"Data/Vehicles/{run_name.split('/')[0]}/{SAVE_NAME}")
 
         return min, max, mean
 
@@ -88,12 +98,10 @@ def plot_progress():
     plt.xlabel("Training Steps (x1000)")
     plt.ylabel("Track Progress %")
     plt.ylim(0, 1)
-    plt.legend(loc='lower right')
+    plt.legend(loc='upper left')
     plt.tight_layout()
     plt.grid()
-    std_img_saving(f"Data/Vehicles/training_progress_dist")
-
-
-
+    std_img_saving(f"Data/Vehicles/{SAVE_NAME}")
 
 plot_progress()
+

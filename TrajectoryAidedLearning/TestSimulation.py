@@ -11,6 +11,11 @@ from TrajectoryAidedLearning.Planners.TD3Planners import TD3Trainer, TD3Tester
 from TrajectoryAidedLearning.Planners.SACPlanners import SACTrainer, SACTester
 from TrajectoryAidedLearning.Planners.DreamerV2Planners import DreamerV2Trainer, DreamerV2Tester
 from TrajectoryAidedLearning.Planners.DreamerV3Planners import DreamerV3Trainer, DreamerV3Tester
+from TrajectoryAidedLearning.Planners.cDreamerPlanners import cDreamerTrainer, cDreamerTester
+from TrajectoryAidedLearning.Planners.cbDreamerPlanners import cbDreamerTrainer, cbDreamerTester
+from TrajectoryAidedLearning.Planners.cobDreamerPlanners import cobDreamerTrainer, cobDreamerTester
+from TrajectoryAidedLearning.Planners.cfDreamerPlanners import cfDreamerTrainer, cfDreamerTester
+
 
 from TrajectoryAidedLearning.Utils.RewardSignals import *
 from TrajectoryAidedLearning.Utils.StdTrack import StdTrack
@@ -22,11 +27,12 @@ import torch
 import numpy as np
 from math import ceil
 import time
+import cv2
 
 # settings
 SHOW_TRAIN = False
-SHOW_TEST = False
-# SHOW_TEST = True
+# SHOW_TEST = False
+SHOW_TEST = True
 VERBOSE = True
 LOGGING = True
 GRID_X_COEFF = 2.0
@@ -58,6 +64,14 @@ def select_agent(run, conf, architecture, train=True, init=False, ma_info=[0.0, 
         agent = DreamerV2Trainer(run, conf) if train else DreamerV2Tester(run, conf)
     elif agent_type == "DreamerV3":
         agent = DreamerV3Trainer(run, conf, init=init) if train else DreamerV3Tester(run, conf)
+    elif agent_type == "cDreamer":
+        agent = cDreamerTrainer(run, conf, init=init) if train else cDreamerTester(run, conf)
+    elif agent_type == "cbDreamer":
+        agent = cbDreamerTrainer(run, conf, init=init) if train else cbDreamerTester(run, conf)
+    elif agent_type == "cobDreamer":
+        agent = cobDreamerTrainer(run, conf, init=init) if train else cobDreamerTester(run, conf)
+    elif agent_type == "cfDreamer":
+        agent = cfDreamerTrainer(run, conf, init=init) if train else cfDreamerTester(run, conf)
     elif agent_type == "DispExt":
         agent = DispExt(run, conf, ma_info=ma_info)
     else: raise Exception("Unknown agent type: " + agent_type)
@@ -79,6 +93,7 @@ class TestSimulation():
         self.n_test_laps = None
         self.lap_times = None
         self.completed_laps = None
+        self.a2a_collisions = None
         self.places = None
         self.progresses = None
         self.prev_obs = None
@@ -151,6 +166,9 @@ class TestSimulation():
             ma_runlist = np.stack([speed_grid.ravel(), la_grid.ravel()], axis=1)
 
         for ma_idx, ma_info in enumerate(ma_runlist):
+            if ma_idx < 31:
+                continue
+            print(f"Architecture {run.architecture} / Num_Agents {run.num_agents} / Adversary {run.adversaries[0]} / Set_n {run.n} / RunConfig {ma_idx} ")
             self.adv_planners = [select_agent(run, self.conf, architecture, train=False, init=False, ma_info=ma_info) for architecture in run.adversaries]
             self.vehicle_state_history = [VehicleStateHistory(run, f"Testing/Testing_{ma_idx}/agent_{agent_id}") for agent_id in range(self.num_agents)]
             assert self.env != None, "No environment created"
@@ -158,38 +176,86 @@ class TestSimulation():
 
             self.lap_times = []
             self.places = []
+            self.overtakes = []
             self.progresses = []
             self.rewards = []
+            self.step_rewards = []
             self.completed_laps = 0
+            self.a2a_collisions = 0
 
+            context = ma_info #if len(run.adversaries) > 0 else None
+            # context = [0.0, 0.0] # for cless runs, please delete later
             for i in range(self.n_test_laps):
                 observations = self.reset_simulation()
                 target_obs = observations[0]
 
+                eps_steps = 0
                 eps_reward = 0.0
+                eps_overtakes = 0.0
+                # frame_list = []
+                # fig, ax = plt.subplots()
                 while not target_obs['colision_done'] and not target_obs['lap_done'] and not target_obs['current_laptime'] > self.conf.max_laptime:
                     self.prev_obs = observations
-                    target_action = self.target_planner.plan(observations[0])
+                    target_action, extra = self.target_planner.plan(observations[0], context=context)
+                    # target_action, extra = np.array([0.0, 0.0]), None
+                    if run.architecture == "cbDreamer":
+                        self.vehicle_state_history[0].add_mask(extra)
+
+                    # target_action, recon = np.array([0.0, 0.45]), None
+
+                    # ax.clear()
+                    # ax.plot(recon)
+                    # ax.plot(np.zeros((108,)) if self.target_planner.nn_state is None else self.target_planner.nn_state)
+                    # ax.set_ylim(0, 1)
+
+                    # # Save the frame as an image in memory
+                    # fig.canvas.draw()
+                    # img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+                    # img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+                    # frame_list.append(img)
+
                     if len(self.adv_planners) > 0:
                         adv_actions = np.array([adv.plan(obs) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
+                        # adv_actions = np.array([np.array([0.0, 0.0]) if not obs['colision_done'] else [0.0, 0.0] for (adv, obs) in zip(self.adv_planners, observations[1:])])
                         actions = np.concatenate((target_action.reshape(1, -1), adv_actions), axis=0)
                     else:
                         actions = target_action.reshape(1, -1)
+                    
+                    step_position = target_obs['position']
+                    eps_steps += 1
+                    eps_reward += target_obs['reward']
+                    eps_overtakes += target_obs['overtaking']
+
                     observations = self.run_step(actions)
                     target_obs = observations[0]
-                    eps_reward += target_obs['reward']
 
                     if SHOW_TEST: self.env.render('human_fast')
+
+                # frame_height, frame_width, _ = frame_list[0].shape
+                # out = cv2.VideoWriter(f'recon_{i}.avi', cv2.VideoWriter_fourcc(*'XVID'), 10, (frame_width, frame_height))
+
+                # for frame in frame_list:
+                #     out.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))  # Convert RGB to BGR for OpenCV
+
+                # out.release()
+
 
                 self.target_planner.lap_complete()
                 self.progresses.append(target_obs['progress'])
                 self.rewards.append(eps_reward)
+                self.step_rewards.append(eps_reward / eps_steps)
+                self.overtakes.append(eps_overtakes)
+    
                 if target_obs['lap_done']:
                     if VERBOSE: print(f"Lap {i} Complete in time: {target_obs['current_laptime']}")
                     self.lap_times.append(target_obs['current_laptime'])
-                    self.places.append(target_obs['position'])
-
+                    self.places.append(step_position)
                     self.completed_laps += 1
+                else:
+                    self.places.append(run.num_agents)
+
+                if target_obs['colision_a2a']:
+                    self.a2a_collisions += 1
 
                 if target_obs['colision_done']:
                     if VERBOSE: print(f"Lap {i} Crashed in time: {target_obs['current_laptime']}")
@@ -211,6 +277,11 @@ class TestSimulation():
             else:
                 avg_times, times_std_dev = 0, 0
 
+            if len(self.overtakes) > 0:
+                avg_overtakes, overtakes_std_dev = np.mean(self.overtakes), np.std(self.overtakes)
+            else:
+                avg_overtakes, overtakes_std_dev = 0, 0
+
             if len(self.places) > 0:
                 avg_place, place_std_dev = np.mean(self.places), np.std(self.places)
             else:
@@ -226,22 +297,36 @@ class TestSimulation():
             else:
                 avg_reward, reward_std_dev = 0, 0
 
+            if len(self.step_rewards) > 0:
+                avg_step_reward, step_reward_std_dev = np.mean(self.step_rewards), np.std(self.step_rewards)
+            else:
+                avg_step_reward, step_reward_std_dev = 0, 0
+            
             print(f"Crashes: {self.n_test_laps - self.completed_laps} VS Completes {self.completed_laps} --> {success_rate:.2f} %")
             print(f"Lap times Avg: {avg_times} --> Std: {times_std_dev}")
             print(f"Place Avg: {avg_place} --> Std: {place_std_dev}")
+            print(f"Overtakes Avg: {avg_overtakes} --> Std: {overtakes_std_dev}")
             print(f"Progress Avg: {avg_progress} --> Std: {progress_std_dev}")
             print(f"Reward Avg: {avg_reward} --> Std: {reward_std_dev}")
+            print(f"Step Reward Avg: {avg_step_reward} --> Std: {step_reward_std_dev}")
+
 
             eval_dict = {}
             eval_dict['success_rate'] = float(success_rate)
+            eval_dict['a2a_collisions'] = float(self.a2a_collisions)
             eval_dict['avg_times'] = float(avg_times)
             eval_dict['times_std_dev'] = float(times_std_dev)
+            eval_dict['avg_overtakes'] = float(avg_overtakes)
+            eval_dict['overtakes_std_dev'] = float(overtakes_std_dev)
             eval_dict['avg_place'] = float(avg_place)
             eval_dict['place_std_dev'] = float(place_std_dev)
             eval_dict['avg_progress'] = float(avg_progress)
             eval_dict['progress_std_dev'] = float(progress_std_dev)
             eval_dict['avg_reward'] = float(avg_reward)
             eval_dict['reward_std_dev'] = float(reward_std_dev)
+            eval_dict['avg_step_reward'] = float(avg_step_reward)
+            eval_dict['step_reward_std_dev'] = float(step_reward_std_dev)
+
 
             run_dict = vars(run)
             run_dict.update(eval_dict)
@@ -253,6 +338,7 @@ class TestSimulation():
             self.progresses = []
             self.rewards = []
             self.completed_laps = 0
+            self.a2a_collisions = 0
 
     # this is an overide
     def run_step(self, actions):
@@ -304,6 +390,7 @@ class TestSimulation():
             observation['state'] = state
             observation['lap_done'] = False
             observation['colision_done'] = False
+            observation['colision_a2a'] = False
             observation['position'] = 0
 
             observation['reward'] = 0.0
@@ -313,6 +400,9 @@ class TestSimulation():
                 # observation['colision_done'] = True
             if obs['collisions'][agent_id] == 1.:
                 observation['colision_done'] = True
+
+            if obs['collisions_idx'][agent_id] != -1:
+                observation['colision_a2a'] = True
 
             if self.std_track is not None:
                 self.std_track.calculate_progress(agent_id, state[0:2])
@@ -371,15 +461,15 @@ class TestSimulation():
     def calc_offsets(self, num_adv):
         x_offset = np.arange(1, num_adv+1) * 5.5
         y_offset = np.zeros(num_adv)
-        y_offset[::2] = np.ones(ceil(num_adv/2)) * 0.6
+        # y_offset[::2] = np.ones(ceil(num_adv/2)) * 0.6
         offset = np.concatenate((x_offset.reshape(1, -1), y_offset.reshape(1, -1), np.zeros((1, num_adv))), axis=0).T
 
         return offset
 
     def reset_simulation(self):
         reset_pose = np.zeros((self.num_agents, 3))
-        if self.num_agents > 1:
-            reset_pose[:, 1] -= GRID_Y_COEFF/2
+        # if self.num_agents > 1:
+        #     reset_pose[:, 1] -= GRID_Y_COEFF/2
 
         num_adv = self.num_agents - 1
         adv_back = self.num_agents - self.target_position
@@ -410,14 +500,54 @@ def main():
     # run_file = "dev"
     # run_file = "SAC_lr"
     # run_file = "SAC_gamma"
-    run_file = "SAC_singleagent"
+    # run_file = "SAC_singleagent"
     # run_file = "SAC_multiagent_stationary"
     # run_file = "SAC_multiagent_nonstationary"
+    # run_file = "sac_multiagent_classic"
+    # run_file = "sac_multiagent_dispext"
     # run_file = "dreamerv3_lr"
     # run_file = "dreamerv3_singleagent"
     # run_file = "dreamerv3_multiagent_stationary"
     # run_file = "dreamerv3_multiagent_nonstationary"
-    
+    # run_file = "dreamerv3_multiagent_classic"
+    # run_file = "dreamerv3_multiagent_dispext"
+    # run_file = "cdreamer_singleagent"
+    # run_file = "cdreamer_multiagent_stationary"
+    # run_file = "cdreamer_multiagent_nonstationary"
+    # run_file = "cdreamer_multiagent_classic"
+    # run_file = "cdreamer_multiagent_dispext"
+    # run_file = "cfdreamer_multiagent_nonstationary"
+    # run_file = "cbdreamer_multiagent_nonstationary"
+    # run_file = "cbdreamer_multiagent_nonstationary2"
+    # run_file = "cbdreamer_multiagent_classic"
+    # run_file = "cbdreamer_multiagent_dispext"
+
+    # run_file = "sac_multiagent_classic_gbr"
+    # sim = TestSimulation(run_file)
+    # sim.run_testing_evaluation()
+
+    # run_file = "dreamerv3_multiagent_dispext"
+    # sim = TestSimulation(run_file)
+    # sim.run_testing_evaluation()
+
+    # run_file = "cdreamer_multiagent_dispext"
+    # sim = TestSimulation(run_file)
+    # sim.run_testing_evaluation()
+
+    # run_file = "clesscbdreamer_multiagent_dispext"
+    # sim = TestSimulation(run_file)
+    # sim.run_testing_evaluation()
+
+    # run_file = "clesscdreamer_multiagent_classic"
+    # sim = TestSimulation(run_file)
+    # sim.run_testing_evaluation()
+
+    # run_file = "clesscdreamer_multiagent_dispext"
+    # sim = TestSimulation(run_file)
+    # sim.run_testing_evaluation()
+
+
+    run_file = "dreamerv3_multiagent_classic"
     sim = TestSimulation(run_file)
     sim.run_testing_evaluation()
 

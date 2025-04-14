@@ -90,6 +90,9 @@ class StdTrack:
             self.max_distance[agent_id] = self.s[agent_id]
         else:
             self.s[agent_id] = self.ss[idx] + x
+        if self.s[agent_id] < self.total_s * 0.05 and self.max_distance[agent_id] > self.total_s * 0.95:
+            self.s[agent_id] += self.total_s # add one lap 
+
 
     def calculate_progress_percent(self, agent_id):
         return self.s[agent_id]/self.total_s

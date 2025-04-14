@@ -27,6 +27,8 @@ from TrajectoryAidedLearning.DataTools.plotting_utils import *
 # SAVE_PDF = False
 SAVE_PDF = True
 
+CTX_RUN = 17
+
 CMAP_SIZE = {
     "f1_esp" : 0.35,
     "f1_aut" : 0.4,
@@ -59,7 +61,7 @@ class AnalyseTestLapData:
 
     def explore_folder(self, run_file):
         self.run_data = setup_run_list(run_file)
-        self.num_agents = self.run_data[0].num_agents
+        self.num_agents = self.run_data[1].num_agents
         self.n_test_laps = self.run_data[0].n_test_laps
         path = "Data/Vehicles/" + run_file + "/"
 
@@ -82,8 +84,11 @@ class AnalyseTestLapData:
         self.std_track = StdTrack(self.map_name)
         self.racing_track = RacingTrack(self.map_name)
 
-        runs_folders = glob.glob(f"{folder}" + "Testing/*/")
+
+        runs_folders = glob.glob(f"{folder}" + f"Testing/Testing_{CTX_RUN}/")
+        print("run_folders :", runs_folders)
         for j, run_folder in enumerate(runs_folders):
+            print("processing ", run_folder)
             print(f"{j}) {run_folder}")
             if not os.path.exists(run_folder + "TestingVelocities/"): 
                 os.mkdir(run_folder + "TestingVelocities/") 
@@ -127,7 +132,7 @@ class AnalyseTestLapData:
             norm = plt.Normalize(0, 6)
             lc = LineCollection(segments, cmap=cmaps[agent_id], norm=norm)
             lc.set_array(vs)
-            lc.set_linewidth(2)
+            lc.set_linewidth(0.5)
             line = plt.gca().add_collection(lc)
             cbar = plt.colorbar(line,fraction=0.046, pad=0.04, shrink=CMAP_SIZE[self.map_name])
             cbar.ax.tick_params(labelsize=12)

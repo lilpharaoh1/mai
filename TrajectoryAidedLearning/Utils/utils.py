@@ -88,6 +88,24 @@ def plot_pallet():
         plt.plot([i,i], [0,1], color=plotting_pallete2[i], linewidth=10)
     plt.show()
 
+def ewma(data, alpha=0.2):
+    if len(data) < 2:
+        return np.zeros_like(data)
+
+    alpha_rev = 1-alpha
+    n = data.shape[0]
+
+    pows = alpha_rev**(np.arange(n+1))
+
+    scale_arr = 1/pows[:-1]
+    offset = data[0]*pows[1:]
+    pw0 = alpha*alpha_rev**(n-1)
+
+    mult = data*pw0*scale_arr
+    cumsums = mult.cumsum()
+    out = offset + cumsums*scale_arr[::-1]
+    return out
+
 def true_moving_average(data, period):
     if len(data) < period:
         return np.zeros_like(data)

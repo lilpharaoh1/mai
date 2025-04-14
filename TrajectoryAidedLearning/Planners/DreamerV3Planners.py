@@ -35,7 +35,7 @@ class DreamerV3Trainer:
         self.train = self.agent.train # alias for sss
         # self.save = self.agent.save # alias for sss
 
-    def plan(self, obs, add_mem_entry=True):
+    def plan(self, obs, context=None, add_mem_entry=True):
         nn_state = self.transform.transform_obs(obs)
         if add_mem_entry:
             self.add_memory_entry(obs)
@@ -127,6 +127,8 @@ class DreamerV3Trainer:
         self.t_his.print_update(True)
         self.t_his.save_csv_data()
         self.agent.save(self.path)
+        if self.t_his.new_best:
+            self.agent.save(self.path, best=True)
 
 class DreamerV3Tester:
     def __init__(self, run, conf):
@@ -145,7 +147,7 @@ class DreamerV3Tester:
         self.transform = FastTransform(run, conf)
 
         self.agent = DreamerV3(self.transform.state_space, self.transform.action_space, run.run_name, max_action=1, window_in=run.window_in, window_out=run.window_out, lr=run.lr)
-        checkpoint = torch.load(self.path + '/' + run.run_name + ".pth")
+        checkpoint = torch.load(self.path + '/best_' + run.run_name + ".pth")
         self.agent.load_state_dict(checkpoint['agent_state_dict'])
         self.nn_state = None
         self.nn_act = None
@@ -157,10 +159,10 @@ class DreamerV3Tester:
 
         print(f"Agent loaded: {run.run_name}")
 
-    def plan(self, obs):
+    def plan(self, obs, context=None):
         if obs['state'][3] < self.v_min_plan:
             self.action = np.array([0, 7])
-            return self.action
+            return self.action, np.zeros((108,))
         
         nn_obs = self.transform.transform_obs(obs)
 
@@ -177,7 +179,7 @@ class DreamerV3Tester:
 
 
         self.nn_state = nn_obs # after to prevent call before check for v_min_plan
-        self.nn_act, self.nn_rssm = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, is_first=self.nn_act is None)
+        self.nn_act, self.nn_rssm, recon = self.agent.act(self.nn_state, self.nn_act, self.nn_rssm, is_first=self.nn_act is None, video=True)
         self.nn_act = self.nn_act.cpu().squeeze(0)
 
         if np.isnan(self.nn_act).any():
@@ -187,7 +189,8 @@ class DreamerV3Tester:
         self.transform.transform_obs(obs) # to ensure correct PP actions
         self.action = self.transform.transform_action(self.nn_act)
 
-        return self.action 
+
+        return self.action, recon
 
     def lap_complete(self):
         self.nn_state = None

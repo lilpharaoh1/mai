@@ -332,6 +332,17 @@ class MultiEncoder(nn.Module):
             if len(v) in (1, 2) # and re.match(mlp_keys, k)
         }
 
+        # self.cnn_shapes =  {
+        #     k: v 
+        #     for k, v in shapes.items() 
+        #     if k == 'image'
+        # }
+        # self.mlp_shapes = {
+        #     k: v
+        #     for k, v in shapes.items()
+        #     if k != 'image'
+        # }
+
         print("Encoder CNN shapes:", self.cnn_shapes)
         print("Encoder MLP shapes:", self.mlp_shapes)
 
@@ -466,7 +477,7 @@ class MultiDecoder(nn.Module):
         raise NotImplementedError(self._image_dist)
 
 
-class ConvEncoder(nn.Module):
+class ConvEncoderOld(nn.Module):
     def __init__(
         self,
         input_shape,
@@ -515,6 +526,48 @@ class ConvEncoder(nn.Module):
         x = x.reshape([x.shape[0], np.prod(x.shape[1:])])
         # (batch * time, -1) -> (batch, time, -1)
         return x.reshape(list(obs.shape[:-3]) + [x.shape[-1]])
+
+
+class ConvEncoder(nn.Module):
+    def __init__(
+        self,
+        input_shape,
+        depth=32,
+        act="SiLU",
+        norm=True,
+        kernel_size=4,
+        minres=4,
+    ):
+        super(ConvEncoder, self).__init__()
+        act = getattr(torch.nn, act)
+        # h, w, input_ch = input_shape
+        cnn_layers = [
+            nn.Conv1d(1, 32, 4, 2, bias=False),
+            nn.Conv1d(32, 32, 4, 2, bias=False),
+            nn.Conv1d(32, 32, 4, 2, padding=1, bias=False)
+        ]
+
+        mlp_layers = [
+            nn.Linear(32 * 12, 256),
+            nn.Linear(256, 256)
+        ]
+        
+        self.outdim = 256 # 32 * 12 # EMRAN ? guess 
+        self.cnn_layers = nn.Sequential(*cnn_layers)
+        self.cnn_layers.apply(tools.weight_init)
+        self.mlp_layers = nn.Sequential(*mlp_layers)
+        self.mlp_layers.apply(tools.weight_init)
+
+    def forward(self, obs):
+        obs -= 0.5
+        x = obs
+        x = self.cnn_layers(x)
+        x = x.reshape(len(x), -1) if len(x.shape) > 2 else x.reshape(1, -1)
+        x = self.mlp_layers(x)
+
+
+
+        return x
 
 
 class ConvDecoder(nn.Module):

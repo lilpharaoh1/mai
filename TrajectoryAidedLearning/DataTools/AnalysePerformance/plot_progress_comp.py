@@ -71,7 +71,7 @@ class AnalyseTestLapData:
         self.run_data = setup_run_list(run_file)        
         self.sim_steps = load_conf("config_file").sim_steps
 
-        self.num_agents = self.run_data[0].num_agents
+        self.num_agents = 4# self.run_data[1].num_agents
         self.n_test_laps = self.run_data[0].n_test_laps
         path = "Data/Vehicles/" + run_file + "/"
 
@@ -129,6 +129,8 @@ class AnalyseTestLapData:
         advs = [ARCH_MAP[int(str_adv)] for str_adv in self.path[:-1].split("/")[-1].split('_')[1]]
         agent_names = [f"{adv} (Adversary #{adv_idx + 1})" for adv_idx, adv in enumerate(advs)]
         agent_names.insert(0, f"{target} (Target)") 
+
+        print(agent_names)
 
         total_steps = self.progresses.shape[1]
         xs = np.linspace(0, total_steps * DT * self.sim_steps, total_steps)

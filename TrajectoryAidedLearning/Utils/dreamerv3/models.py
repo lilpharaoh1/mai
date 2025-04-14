@@ -43,6 +43,7 @@ class WorldModel(nn.Module):
             'reward': (1,),
             'is_terminal': (1,)
         }
+        print("config.encoder :", config.encoder)
         self.encoder = networks.MultiEncoder(shapes, **config.encoder)
         self.encoder._mlp.to(config.device)
         self.embed_size = self.encoder.outdim
@@ -64,6 +65,7 @@ class WorldModel(nn.Module):
             config.device,
         )
         self.heads = nn.ModuleDict()
+        print("config.decoder :", config.decoder)
         if config.dyn_discrete:
             feat_size = config.dyn_stoch * config.dyn_discrete + config.dyn_deter
         else:
