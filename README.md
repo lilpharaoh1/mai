@@ -1,8 +1,9 @@
-# TrajectoryAidedLearning
+# Model-Based Reinforcement Learning for Multi-Agent Autonomous Racing
+## Emran Yasser Moustafa - 20332041
 
-This repo contains the source code for the paper entitled, "[High-speed Autonomous Racing using Trajectory-aided Deep Reinforcement Learning](https://ieeexplore.ieee.org/document/10182327)"
+This repo contains the code I used for my MAI thesis project "Model-Based Reinforcement Learning for Multi-Agent Autonomous Racing".
 
-We present a reward signal that incorporates an optimal trajectory to train deep reinforcement learning agents for high-speed autonomous racing.
+As a starting point, I forked the F1Tenth gym environment used in the paper "[High-speed Autonomous Racing using Trajectory-aided Deep Reinforcement Learning](https://ieeexplore.ieee.org/document/10182327)". My implementation built upon this work by including a configurable framework for multi-agent racingg and by implementing the SAC, DreamerV3, cRSSM and cMask algorithms. I also implemented two context-parameterised adversarial agents; the Classic agent and the Disparity Extender agent. For details on these adversaries, the RL algorithms we used and the F1Tenth environment, please refer to my thesis document.  
 
 ![](Data/tal_calculation.png)
 
