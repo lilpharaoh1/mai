@@ -1,81 +1,34 @@
-# Model-Based Reinforcement Learning for Multi-Agent Autonomous Racing
-## Emran Yasser Moustafa - 20332041
+# MAI Thesis - Emran Yasser Moustafa - 20332041
 
-This repo contains the code I used for my MAI thesis project "Model-Based Reinforcement Learning for Multi-Agent Autonomous Racing".
+This repo contains the code I used for my MAI thesis project "Model-Based Reinforcement Learning for Multi-Agent Autonomous Racing", supervised by Prof Ivana Dusparic.
 
 As a starting point, I forked the F1Tenth gym environment used in the paper "[High-speed Autonomous Racing using Trajectory-aided Deep Reinforcement Learning](https://ieeexplore.ieee.org/document/10182327)". My implementation built upon this work by including a configurable framework for multi-agent racingg and by implementing the SAC, DreamerV3, cRSSM and cMask algorithms. I also implemented two context-parameterised adversarial agents; the Classic agent and the Disparity Extender agent. For details on these adversaries, the RL algorithms we used and the F1Tenth environment, please refer to my thesis document.  
 
-![](Data/tal_calculation.png)
+![](Data/overtake.gif)
 
-Training agents with our reward signal results in significatly improved training performance.
-The most noteable performance difference is at high-speeds where previous rewards failed.
+## Setup
+To setup the environment, I would advise you first to install [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html).
 
-![](Data/TAL_vs_baseline_reward.png)
+Once this is complete, please create a new conda environment using the ```environment.yml``` file I have provided. This can be done by using the following command.
 
-The improved training results in higher average progrresses at high speeds.
-
-![](Data/tal_progress.png)
-
-# Result Generation
-
-The results in the paper are generated through a two step process of:
-1. Train and test the agents
-2. Process and plot the data
-
-For every test:
-- Run calculate_statistics
-- Run calculate_averages
-
-## Tests:
-
-### Maximum Speed Investigation
-
-- Aim: Understand how performance changes with different speeds.
-- Config files: CthSpeeds, TAL_speeds 
-- Results: 
-    - Training graph: Cth_TAL_speeds_TrainingGraph
-    - Lap times and % success: Cth_TAL_speeds_Barplot
-
-### 6 m/s Performance Comparision 
-
-- Aim: Compare the baseline and TAL on different maps with a maximum speed of 6 m/s.
-- Config file: Cth_maps, TAL_maps
-- Results:
-    - Training graphs: TAL_Cth_maps_TrainingGraph
-    - Lap times and success bar plot: TAL_Cth_maps_Barplot
-
-### Speed Profile Analysis 
-
-- Aim: Study the speed profiles
-- Requires the pure pursuit (PP_speeds) results
-- Results:
-    - Trajectories: GenerateVelocityProfiles, set the folder to TAL_speeds
-    - Speed profile pp TAL: TAL_speed_profiles
-    - Speed profile x3: TAL_speed_profiles 
-    - Slip profile: TAL_speed_profiles
-
-### Comparison with Literatures
-
-- Aim: Compare our method with the literature
-- Results:
-    - Bar plot: LiteratureComparison
-- Note that the results from the literature are hard coded.
-
-![](Data/animation.gif)
-
-
-## Citation
-
-If you find this work useful, please consider citing:
+```bash
+conda env create -f environment.yml
 ```
-@ARTICLE{10182327,
-    author={Evans, Benjamin David and Engelbrecht, Herman Arnold and Jordaan, Hendrik Willem},
-    journal={IEEE Robotics and Automation Letters}, 
-    title={High-Speed Autonomous Racing Using Trajectory-Aided Deep Reinforcement Learning}, 
-    year={2023},
-    volume={8},
-    number={9},
-    pages={5353-5359},
-    doi={10.1109/LRA.2023.3295252}
-}
+
+The conda environment is called ```mai_gym```. The environment can be activated by simply using the following command.
+
+```bash
+conda activate mai_gym
 ```
+
+## Training & Evaluation
+There are two important files for running experiments. These are ```TrainAgents.py``` and ```TrajectoryAidedLearning/TestSimulation.py```. These scripts execute training and evaluation, respectively. 
+
+Both scripts are configured using the ```.yaml``` files in the ```config/``` folder. To execute the training or evaluation of a given configuration, navigate the bottom of either script and set ```run_file``` to the name of the configuration. Both scripts should be run from the root of the repository. 
+
+The configuration files specify the trainable and adversarial agent types, the number of training episodes, the number of evaluation episodes, etc. The range of contexts used during training and evaluation is also defined in these scripts.
+
+## Contact
+For questions or concerns, please contact me via email at moustafe@tcd.ie. Thank you!
+
+
