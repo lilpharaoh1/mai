@@ -1,4 +1,4 @@
-# MAI Thesis - Emran Yasser Moustafa - 20332041
+# MAI Thesis - Emran Yasser Moustafa
 
 This repo contains the code I used for my MAI thesis project "Model-Based Reinforcement Learning for Multi-Agent Autonomous Racing", supervised by Prof Ivana Dusparic.
 
